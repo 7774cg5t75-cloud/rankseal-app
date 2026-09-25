@@ -233,33 +233,33 @@ const submitAttempt = async () => {
           </Pressable>
 
           <Text style={styles.eyebrow}>THE 568 CHALLENGE</Text>
-          <Text style={styles.title}>Official 568 Rules</Text>
-          <Text style={styles.bodyText}>
+          <Text style={styles.rulesTitle}>Official 568 Rules</Text>
+          <Text style={styles.rulesIntro}>
             Follow these rules for your attempt to be eligible for the verified leaderboard.
           </Text>
 
           <View style={styles.rulesSection}>
             <Text style={styles.rulesSectionTitle}>Before you start</Text>
-            <Text style={styles.rule}>• Use exactly 568 ml of water.</Text>
-            <Text style={styles.rule}>• Use a suitable transparent glass or cup.</Text>
-            <Text style={styles.rule}>• Place the glass flat on a level surface.</Text>
-            <Text style={styles.rule}>• Keep yourself, the glass and the surface visible.</Text>
+            <Text style={styles.rulesItem}>• Use exactly 568 ml of water.</Text>
+            <Text style={styles.rulesItem}>• Use a suitable transparent glass or cup.</Text>
+            <Text style={styles.rulesItem}>• Place the glass flat on a level surface.</Text>
+            <Text style={styles.rulesItem}>• Keep yourself, the glass and the surface visible.</Text>
           </View>
 
           <View style={styles.rulesSection}>
             <Text style={styles.rulesSectionTitle}>During the attempt</Text>
-            <Text style={styles.rule}>• Do not begin drinking before GO.</Text>
-            <Text style={styles.rule}>• Drink the full 568 ml.</Text>
-            <Text style={styles.rule}>• Recording must remain continuous.</Text>
-            <Text style={styles.rule}>• Press STOP when you have finished drinking.</Text>
+            <Text style={styles.rulesItem}>• Do not begin drinking before GO.</Text>
+            <Text style={styles.rulesItem}>• Drink the full 568 ml.</Text>
+            <Text style={styles.rulesItem}>• Recording must remain continuous.</Text>
+            <Text style={styles.rulesItem}>• Press STOP when you have finished drinking.</Text>
           </View>
 
           <View style={styles.rulesSection}>
             <Text style={styles.rulesSectionTitle}>To finish</Text>
-            <Text style={styles.rule}>• Recording continues after STOP.</Text>
-            <Text style={styles.rule}>• Turn the glass upside down when instructed.</Text>
-            <Text style={styles.rule}>• Small residual drops are allowed.</Text>
-            <Text style={styles.rule}>• Your result only becomes official after verification.</Text>
+            <Text style={styles.rulesItem}>• Recording continues after STOP.</Text>
+            <Text style={styles.rulesItem}>• Turn the glass upside down when instructed.</Text>
+            <Text style={styles.rulesItem}>• Small residual drops are allowed.</Text>
+            <Text style={styles.rulesItem}>• Your result only becomes official after verification.</Text>
           </View>
 
           <Pressable
@@ -275,7 +275,7 @@ const submitAttempt = async () => {
           </Pressable>
 
           <Pressable
-            style={[styles.primary, !rulesAccepted && styles.primaryDisabled]}
+            style={[styles.rulesPrimary, !rulesAccepted && styles.primaryDisabled]}
             onPress={openCamera}
             disabled={!rulesAccepted}
           >
@@ -633,6 +633,99 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: '#E2E0D8',
+  },
+  rulesScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 38,
+  },
+  rulesTitle: {
+    marginTop: 5,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+    color: '#111',
+  },
+  rulesIntro: {
+    marginTop: 8,
+    marginBottom: 4,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#666',
+  },
+  rulesSection: {
+    marginTop: 12,
+    paddingHorizontal: 17,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  rulesSectionTitle: {
+    marginBottom: 10,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '900',
+    color: '#111',
+  },
+  rulesItem: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#30302E',
+    marginBottom: 9,
+  },
+  confirmationCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  checkboxBox: {
+    width: 25,
+    height: 25,
+    marginRight: 12,
+    marginTop: 1,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#6D6D68',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#111',
+    borderColor: '#111',
+  },
+  checkboxTick: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  confirmationText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#222',
+    fontWeight: '700',
+  },
+  rulesPrimary: {
+    marginTop: 14,
+    paddingVertical: 17,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  primaryDisabled: {
+    opacity: 0.35,
   },
   rule: {
     fontSize: 17,
