@@ -6,6 +6,7 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  Share,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { createClient } from '@supabase/supabase-js';
@@ -39,6 +40,16 @@ export default function App() {
   const recordingPromiseRef = useRef(null);
 
   const formatTime = (ms) => ((ms || 0) / 1000).toFixed(2);
+
+  const shareVerifiedResult = async () => {
+    try {
+      await Share.share({
+        message: `I recorded a verified ${formatTime(finalTime)} second time on The 568 Challenge with RankSeal.`,
+      });
+    } catch (error) {
+      console.log('Share error:', error);
+    }
+  };
 
   const resetAttempt = () => {
     if (timerRef.current) {
@@ -864,12 +875,175 @@ const submitAttempt = async () => {
             </Text>
           </View>
 
+          <View style={styles.outcomePreviewCard}>
+            <Text style={styles.outcomePreviewLabel}>PROTOTYPE PREVIEW</Text>
+            <Text style={styles.outcomePreviewText}>
+              Until live review decisions are connected, use these buttons to preview both possible outcomes.
+            </Text>
+
+            <View style={styles.outcomePreviewRow}>
+              <Pressable
+                style={styles.outcomePreviewButton}
+                onPress={() => setScreen('verifiedResult')}
+              >
+                <Text style={styles.outcomePreviewButtonText}>VERIFIED</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.outcomePreviewButton}
+                onPress={() => setScreen('notVerified')}
+              >
+                <Text style={styles.outcomePreviewButtonText}>NOT VERIFIED</Text>
+              </Pressable>
+            </View>
+          </View>
+
           <Pressable
             style={styles.pendingSecondaryButton}
             onPress={() => setScreen('home')}
           >
             <Text style={styles.pendingSecondaryButtonText}>BACK TO HOME</Text>
           </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'verifiedResult') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.outcomeScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.outcomeHero}>
+            <View style={styles.verifiedCircle}>
+              <Text style={styles.verifiedTick}>✓</Text>
+            </View>
+
+            <Text style={styles.outcomeEyebrow}>THE 568 CHALLENGE</Text>
+            <Text style={styles.verifiedTitle}>VERIFIED</Text>
+            <Text style={styles.outcomeTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.outcomeSeconds}>SECONDS</Text>
+          </View>
+
+          <View style={styles.verifiedStatusCard}>
+            <Text style={styles.verifiedStatusTitle}>OFFICIAL RESULT</Text>
+            <Text style={styles.verifiedStatusText}>
+              Your attempt passed verification and now counts as an official RankSeal result.
+            </Text>
+          </View>
+
+          <View style={styles.verifiedStatsRow}>
+            <View style={styles.verifiedStatCard}>
+              <Text style={styles.verifiedStatLabel}>WORLD RANK</Text>
+              <Text style={styles.verifiedStatValue}>—</Text>
+              <Text style={styles.verifiedStatHint}>Live ranking sync next</Text>
+            </View>
+
+            <View style={styles.verifiedStatCard}>
+              <Text style={styles.verifiedStatLabel}>PERSONAL BEST</Text>
+              <Text style={styles.verifiedStatValue}>{formatTime(finalTime)}s</Text>
+              <Text style={styles.verifiedStatHint}>Verified time</Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={styles.outcomePrimaryButton}
+            onPress={() => setScreen('leaderboard')}
+          >
+            <Text style={styles.outcomePrimaryButtonText}>VIEW LEADERBOARD</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.outcomeSecondaryButton}
+            onPress={shareVerifiedResult}
+          >
+            <Text style={styles.outcomeSecondaryButtonText}>SHARE RESULT</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.outcomeTextButton}
+            onPress={() => setScreen('home')}
+          >
+            <Text style={styles.outcomeTextButtonText}>BACK TO HOME</Text>
+          </Pressable>
+
+          <Text style={styles.outcomeFootnote}>
+            Verified results are eligible for official RankSeal rankings.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'notVerified') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.outcomeScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.outcomeHero}>
+            <View style={styles.notVerifiedCircle}>
+              <Text style={styles.notVerifiedMark}>×</Text>
+            </View>
+
+            <Text style={styles.outcomeEyebrow}>THE 568 CHALLENGE</Text>
+            <Text style={styles.notVerifiedTitle}>NOT VERIFIED</Text>
+            <Text style={styles.outcomeTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.outcomeSeconds}>SECONDS</Text>
+          </View>
+
+          <View style={styles.notVerifiedReasonCard}>
+            <Text style={styles.notVerifiedReasonLabel}>REASON</Text>
+            <Text style={styles.notVerifiedReasonTitle}>
+              Starting setup could not be verified clearly
+            </Text>
+            <Text style={styles.notVerifiedReasonText}>
+              The glass, starting volume, or level surface was not clear enough in the recording to confirm the attempt.
+            </Text>
+          </View>
+
+          <View style={styles.notVerifiedInfoCard}>
+            <Text style={styles.notVerifiedInfoTitle}>What this means</Text>
+            <Text style={styles.notVerifiedInfoText}>
+              Your recorded time has not been added to the official leaderboard. You can review the rules and try again.
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.outcomePrimaryButton}
+            onPress={() => {
+              setRulesAccepted(false);
+              setScreen('rules');
+            }}
+          >
+            <Text style={styles.outcomePrimaryButtonText}>TRY AGAIN</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.outcomeSecondaryButton}
+            onPress={() => {
+              setRulesAccepted(false);
+              setScreen('rules');
+            }}
+          >
+            <Text style={styles.outcomeSecondaryButtonText}>VIEW RULES</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.outcomeTextButton}
+            onPress={() => setScreen('home')}
+          >
+            <Text style={styles.outcomeTextButtonText}>BACK TO HOME</Text>
+          </Pressable>
+
+          <Text style={styles.outcomeFootnote}>
+            A not-verified attempt does not affect future attempts or rankings.
+          </Text>
         </ScrollView>
       </SafeAreaView>
     );
@@ -2067,6 +2241,263 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 24,
     color: '#666',
+  },
+  outcomePreviewCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 17,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  outcomePreviewLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  outcomePreviewText: {
+    marginTop: 4,
+    color: '#555',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  outcomePreviewRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  outcomePreviewButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  outcomePreviewButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  outcomeScreenContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 54,
+    paddingBottom: 34,
+  },
+  outcomeHero: {
+    alignItems: 'center',
+  },
+  verifiedCircle: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedTick: {
+    color: '#FFF',
+    fontSize: 48,
+    lineHeight: 52,
+    fontWeight: '900',
+  },
+  notVerifiedCircle: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 4,
+    borderColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notVerifiedMark: {
+    color: '#111',
+    fontSize: 52,
+    lineHeight: 54,
+    fontWeight: '700',
+  },
+  outcomeEyebrow: {
+    marginTop: 18,
+    color: '#777',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.7,
+  },
+  verifiedTitle: {
+    marginTop: 6,
+    color: '#111',
+    fontSize: 38,
+    lineHeight: 43,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  notVerifiedTitle: {
+    marginTop: 6,
+    color: '#111',
+    fontSize: 34,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+  },
+  outcomeTime: {
+    marginTop: 12,
+    color: '#111',
+    fontSize: 64,
+    lineHeight: 70,
+    fontWeight: '900',
+    letterSpacing: -1.7,
+  },
+  outcomeSeconds: {
+    marginTop: -2,
+    color: '#111',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+  },
+  verifiedStatusCard: {
+    marginTop: 22,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  verifiedStatusTitle: {
+    color: '#111',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  verifiedStatusText: {
+    marginTop: 6,
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  verifiedStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  verifiedStatCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 17,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  verifiedStatLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  verifiedStatValue: {
+    marginTop: 5,
+    color: '#111',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  verifiedStatHint: {
+    marginTop: 4,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  notVerifiedReasonCard: {
+    marginTop: 22,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  notVerifiedReasonLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  notVerifiedReasonTitle: {
+    marginTop: 5,
+    color: '#111',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  notVerifiedReasonText: {
+    marginTop: 6,
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  notVerifiedInfoCard: {
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  notVerifiedInfoTitle: {
+    color: '#111',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  notVerifiedInfoText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  outcomePrimaryButton: {
+    marginTop: 18,
+    paddingVertical: 17,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  outcomePrimaryButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  outcomeSecondaryButton: {
+    marginTop: 9,
+    paddingVertical: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  outcomeSecondaryButtonText: {
+    color: '#555',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+  },
+  outcomeTextButton: {
+    marginTop: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  outcomeTextButtonText: {
+    color: '#666',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.45,
+  },
+  outcomeFootnote: {
+    marginTop: 7,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
   },
   pendingScreenContent: {
     flexGrow: 1,
