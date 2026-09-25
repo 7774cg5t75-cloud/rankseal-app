@@ -754,25 +754,123 @@ const submitAttempt = async () => {
   if (screen === 'pending') {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <View style={styles.center}>
-            <Text style={styles.tick}>✓</Text>
-            <Text style={styles.title}>Attempt submitted</Text>
-            <Text style={styles.pendingTime}>{formatTime(finalTime)} seconds</Text>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.pendingScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.pendingHero}>
+            <View style={styles.pendingTickCircle}>
+              <Text style={styles.pendingTickMark}>✓</Text>
+            </View>
 
-            <View style={styles.card}>
-              <Text style={styles.eyebrow}>STATUS</Text>
-              <Text style={styles.pendingTitle}>PENDING REVIEW</Text>
-              <Text style={styles.bodyText}>
-                Prototype stage: the review upload system is the next feature we will build.
+            <Text style={styles.pendingEyebrow}>THE 568 CHALLENGE</Text>
+            <Text style={styles.pendingTitleLarge}>ATTEMPT SUBMITTED</Text>
+            <Text style={styles.pendingSubmittedTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.pendingSecondsLabel}>SECONDS</Text>
+          </View>
+
+          <View style={styles.pendingStatusCard}>
+            <Text style={styles.pendingStatusLabel}>STATUS</Text>
+            <Text style={styles.pendingStatusValue}>PENDING VERIFICATION</Text>
+            <Text style={styles.pendingStatusText}>
+              Your attempt has been received and is waiting to be checked.
+            </Text>
+          </View>
+
+          <View style={styles.pendingInfoCard}>
+            <Text style={styles.pendingInfoTitle}>What happens next?</Text>
+
+            <View style={styles.pendingInfoRow}>
+              <Text style={styles.pendingInfoDot}>1</Text>
+              <Text style={styles.pendingInfoText}>
+                Your recording is checked against the official 568 rules.
               </Text>
             </View>
 
-            <Pressable style={styles.primary} onPress={() => setScreen('home')}>
-              <Text style={styles.primaryText}>BACK TO HOME</Text>
-            </Pressable>
+            <View style={styles.pendingInfoRow}>
+              <Text style={styles.pendingInfoDot}>2</Text>
+              <Text style={styles.pendingInfoText}>
+                If approved, your result becomes verified and enters the official leaderboard.
+              </Text>
+            </View>
+
+            <View style={styles.pendingInfoRow}>
+              <Text style={styles.pendingInfoDot}>3</Text>
+              <Text style={styles.pendingInfoText}>
+                If it cannot be verified, you’ll see the reason and can try again.
+              </Text>
+            </View>
           </View>
-        </View>
+
+          <Pressable
+            style={styles.pendingPrimaryButton}
+            onPress={() => setScreen('attempts')}
+          >
+            <Text style={styles.pendingPrimaryButtonText}>VIEW MY ATTEMPTS</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.pendingSecondaryButton}
+            onPress={() => setScreen('home')}
+          >
+            <Text style={styles.pendingSecondaryButtonText}>BACK TO HOME</Text>
+          </Pressable>
+
+          <Text style={styles.pendingFootnote}>
+            Only verified attempts receive an official RankSeal ranking.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'attempts') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.attemptsScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={() => setScreen('pending')} style={styles.backButton}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <Text style={styles.attemptsEyebrow}>RANKSEAL</Text>
+          <Text style={styles.attemptsTitle}>My Attempts</Text>
+          <Text style={styles.attemptsIntro}>
+            Submitted challenge attempts and their verification status.
+          </Text>
+
+          <View style={styles.attemptCard}>
+            <View style={styles.attemptCardTopRow}>
+              <View>
+                <Text style={styles.attemptChallenge}>THE 568 CHALLENGE</Text>
+                <Text style={styles.attemptTime}>{formatTime(finalTime)} sec</Text>
+              </View>
+
+              <View style={styles.attemptPendingBadge}>
+                <Text style={styles.attemptPendingBadgeText}>PENDING</Text>
+              </View>
+            </View>
+
+            <View style={styles.attemptDivider} />
+
+            <Text style={styles.attemptStatusLabel}>VERIFICATION STATUS</Text>
+            <Text style={styles.attemptStatusValue}>Pending verification</Text>
+            <Text style={styles.attemptStatusText}>
+              This attempt has been submitted and is waiting to be checked.
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.pendingSecondaryButton}
+            onPress={() => setScreen('home')}
+          >
+            <Text style={styles.pendingSecondaryButtonText}>BACK TO HOME</Text>
+          </Pressable>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1969,6 +2067,246 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 24,
     color: '#666',
+  },
+  pendingScreenContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 34,
+  },
+  pendingHero: {
+    alignItems: 'center',
+  },
+  pendingTickCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingTickMark: {
+    color: '#FFF',
+    fontSize: 40,
+    lineHeight: 43,
+    fontWeight: '900',
+  },
+  pendingEyebrow: {
+    marginTop: 17,
+    color: '#777',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.7,
+  },
+  pendingTitleLarge: {
+    marginTop: 6,
+    color: '#111',
+    fontSize: 32,
+    lineHeight: 37,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: -0.7,
+  },
+  pendingSubmittedTime: {
+    marginTop: 13,
+    color: '#111',
+    fontSize: 52,
+    lineHeight: 58,
+    fontWeight: '900',
+    letterSpacing: -1.3,
+  },
+  pendingSecondsLabel: {
+    marginTop: -2,
+    color: '#111',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+  },
+  pendingStatusCard: {
+    marginTop: 21,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  pendingStatusLabel: {
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  pendingStatusValue: {
+    marginTop: 5,
+    color: '#111',
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '900',
+  },
+  pendingStatusText: {
+    marginTop: 7,
+    color: '#555',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pendingInfoCard: {
+    marginTop: 14,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  pendingInfoTitle: {
+    marginBottom: 11,
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  pendingInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  pendingInfoDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 10,
+    paddingTop: 3,
+    backgroundColor: '#111',
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  pendingInfoText: {
+    flex: 1,
+    color: '#444',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  pendingPrimaryButton: {
+    marginTop: 18,
+    paddingVertical: 17,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  pendingPrimaryButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  pendingSecondaryButton: {
+    marginTop: 9,
+    paddingVertical: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  pendingSecondaryButtonText: {
+    color: '#555',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+  },
+  pendingFootnote: {
+    marginTop: 11,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+  attemptsScreenContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 34,
+  },
+  attemptsEyebrow: {
+    marginTop: 8,
+    color: '#777',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.7,
+  },
+  attemptsTitle: {
+    marginTop: 5,
+    color: '#111',
+    fontSize: 36,
+    lineHeight: 41,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  attemptsIntro: {
+    marginTop: 7,
+    color: '#666',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  attemptCard: {
+    marginTop: 20,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  attemptCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  attemptChallenge: {
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  attemptTime: {
+    marginTop: 4,
+    color: '#111',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  attemptPendingBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 13,
+    backgroundColor: '#ECEAE3',
+  },
+  attemptPendingBadgeText: {
+    color: '#444',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  attemptDivider: {
+    height: 1,
+    backgroundColor: '#E5E2DA',
+    marginVertical: 14,
+  },
+  attemptStatusLabel: {
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  attemptStatusValue: {
+    marginTop: 4,
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  attemptStatusText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 18,
   },
   tick: {
     fontSize: 72,
