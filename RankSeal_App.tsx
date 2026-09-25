@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   SafeAreaView,
+  ScrollView,
   View,
   Text,
   Pressable,
@@ -145,12 +146,16 @@ const submitAttempt = async () => {
   if (screen === 'challenge568') {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <Pressable onPress={() => setScreen('home')}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.challengeScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={() => setScreen('home')} style={styles.backButton}>
             <Text style={styles.back}>‹ Back</Text>
           </Pressable>
 
-          <View style={styles.content}>
+          <View>
             <Text style={styles.eyebrow}>RANKSEAL CHALLENGE</Text>
             <Text style={styles.title}>The 568 Challenge</Text>
             <Text style={styles.challengeDescription}>
@@ -209,7 +214,7 @@ const submitAttempt = async () => {
               </Text>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -449,7 +454,11 @@ const submitAttempt = async () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.homeContainer}>
+      <ScrollView
+        style={styles.screenScroll}
+        contentContainerStyle={styles.homeContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <View>
           <Text style={styles.brand}>RANKSEAL</Text>
           <Text style={styles.brandTagline}>Verified challenges. Real rankings.</Text>
@@ -520,7 +529,7 @@ const submitAttempt = async () => {
           </View>
           <Text style={styles.footer}>Prototype • 18+ • Water only • 568 ml</Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -792,9 +801,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111',
   },
-  homeContainer: {
+  screenScroll: {
     flex: 1,
+  },
+  challengeScrollContent: {
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 36,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingRight: 16,
+    marginBottom: 8,
+  },
+  homeContainer: {
+    flexGrow: 1,
     padding: 22,
+    paddingBottom: 36,
     justifyContent: 'space-between',
   },
   brand: {
