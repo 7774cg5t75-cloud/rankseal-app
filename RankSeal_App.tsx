@@ -557,7 +557,11 @@ const submitAttempt = async () => {
           )}
 
           {phase === 'drinking' && (
-            <>
+            <View style={styles.liveAttemptLayout}>
+              <View style={styles.liveRecordingPill}>
+                <Text style={styles.recordingPillText}>● RECORDING</Text>
+              </View>
+
               <View style={styles.cameraCenter}>
                 <Text style={styles.go}>GO!</Text>
                 <Text style={styles.liveTime}>{formatTime(elapsed)}</Text>
@@ -569,11 +573,15 @@ const submitAttempt = async () => {
                   <Text style={styles.stopButtonText}>STOP</Text>
                 </Pressable>
               </View>
-            </>
+            </View>
           )}
 
           {phase === 'flip' && (
-            <>
+            <View style={styles.liveAttemptLayout}>
+              <View style={styles.liveRecordingPill}>
+                <Text style={styles.recordingPillText}>● RECORDING</Text>
+              </View>
+
               <View style={styles.flipCard}>
                 <Text style={styles.frozenTime}>{formatTime(finalTime)} SEC</Text>
                 <Text style={styles.flipTitle}>TURN THE GLASS UPSIDE DOWN</Text>
@@ -587,7 +595,7 @@ const submitAttempt = async () => {
                   <Text style={styles.whiteButtonText}>FINISH RECORDING</Text>
                 </Pressable>
               </View>
-            </>
+            </View>
           )}
         </SafeAreaView>
       </View>
@@ -1417,6 +1425,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.2,
+  },
+  liveAttemptLayout: {
+    flex: 1,
+  },
+  liveRecordingPill: {
+    alignSelf: 'center',
+    marginTop: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.68)',
   },
   countdownCenter: {
     flex: 1,
