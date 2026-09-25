@@ -495,36 +495,64 @@ const submitAttempt = async () => {
           )}
 
           {phase === 'ready' && (
-            <>
-              <View style={styles.cameraTopCard}>
-                <Text style={styles.camera568}>568</Text>
-                <Text style={styles.cameraInstruction}>
-                  Camera setup confirmed. Get ready for the official attempt.
-                </Text>
+            <View style={styles.readyLayout}>
+              <View style={styles.readyTop}>
+                <Pressable
+                  style={styles.readyBackButton}
+                  onPress={() => {
+                    setPrecheckConfirmed(false);
+                    setPhase('precheck');
+                  }}
+                >
+                  <Text style={styles.readyBackText}>‹ Back</Text>
+                </Pressable>
               </View>
 
-              <View style={styles.cameraBottom}>
+              <View style={styles.readyCenter}>
+                <View style={styles.readyCard}>
+                  <Text style={styles.readyEyebrow}>OFFICIAL 568 ATTEMPT</Text>
+                  <Text style={styles.readyTitle}>GET READY</Text>
+                  <Text style={styles.readyIntro}>
+                    Recording begins when you tap START.
+                  </Text>
+                  <Text style={styles.readyWarning}>
+                    Do not start drinking until GO.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.readyBottom}>
+                <Text style={styles.readySequence}>3  •  2  •  1  •  GO</Text>
                 <Pressable
                   style={[
-                    styles.whiteButton,
+                    styles.readyStartButton,
                     !cameraReady && styles.disabledButton,
                   ]}
                   disabled={!cameraReady}
                   onPress={startCountdown}
                 >
-                  <Text style={styles.whiteButtonText}>
-                    {cameraReady ? 'START COUNTDOWN' : 'CAMERA LOADING…'}
+                  <Text style={styles.readyStartText}>
+                    {cameraReady ? 'START' : 'CAMERA LOADING…'}
                   </Text>
                 </Pressable>
               </View>
-            </>
+            </View>
           )}
 
           {phase === 'countdown' && (
-            <View style={styles.cameraCenter}>
-              <Text style={styles.countdown}>
-                {countdown > 0 ? countdown : 'GO!'}
-              </Text>
+            <View style={styles.countdownLayout}>
+              <View style={styles.recordingPill}>
+                <Text style={styles.recordingPillText}>● RECORDING</Text>
+              </View>
+
+              <View style={styles.countdownCenter}>
+                <Text style={styles.countdownNumber}>
+                  {countdown > 0 ? countdown : 'GO!'}
+                </Text>
+                <Text style={styles.countdownHelp}>
+                  {countdown > 0 ? 'DO NOT START YET' : 'GO'}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -1287,6 +1315,135 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  readyLayout: {
+    flex: 1,
+  },
+  readyTop: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  readyBackButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingLeft: 44,
+    paddingRight: 12,
+  },
+  readyBackText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  readyCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  readyCard: {
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.68)',
+    alignItems: 'center',
+  },
+  readyEyebrow: {
+    color: '#D8D8D8',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.7,
+  },
+  readyTitle: {
+    marginTop: 10,
+    color: '#FFF',
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  readyIntro: {
+    marginTop: 10,
+    color: '#FFF',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  readyWarning: {
+    marginTop: 8,
+    color: '#FFF',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+    fontWeight: '800',
+  },
+  readyBottom: {
+    paddingHorizontal: 22,
+    paddingBottom: 36,
+  },
+  readySequence: {
+    marginBottom: 10,
+    color: '#FFF',
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 6,
+  },
+  readyStartButton: {
+    paddingVertical: 18,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  readyStartText: {
+    color: '#111',
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  countdownLayout: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  recordingPill: {
+    marginTop: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  recordingPillText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  countdownCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 70,
+  },
+  countdownNumber: {
+    textAlign: 'center',
+    fontSize: 156,
+    lineHeight: 165,
+    fontWeight: '900',
+    color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.65)',
+    textShadowRadius: 12,
+  },
+  countdownHelp: {
+    marginTop: 8,
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   cameraTopCard: {
     margin: 24,
