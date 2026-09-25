@@ -28,6 +28,8 @@ export default function App() {
   const [cameraFacing, setCameraFacing] = useState('front');
   const [precheckConfirmed, setPrecheckConfirmed] = useState(false);
   const [flipHoldReady, setFlipHoldReady] = useState(false);
+  const [submittingAttempt, setSubmittingAttempt] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -49,6 +51,8 @@ export default function App() {
     setElapsed(0);
     setFinalTime(0);
     setVideoUri(null);
+    setSubmittingAttempt(false);
+    setSubmitError('');
   };
 
   const openCamera = () => {
@@ -58,6 +62,11 @@ export default function App() {
     setScreen('camera');
   };
 const submitAttempt = async () => {
+  if (submittingAttempt) return;
+
+  setSubmittingAttempt(true);
+  setSubmitError('');
+
   const { error } = await supabase
     .from('attempts')
     .insert({
@@ -68,9 +77,12 @@ const submitAttempt = async () => {
 
   if (error) {
     console.log('Submit error:', error);
+    setSubmitError('Could not submit this attempt. Please try again.');
+    setSubmittingAttempt(false);
     return;
   }
 
+  setSubmittingAttempt(false);
   setScreen('pending');
 };
   const startCountdown = () => {
@@ -649,36 +661,92 @@ const submitAttempt = async () => {
   if (screen === 'result') {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <View style={styles.center}>
-            <Text style={styles.eyebrow}>YOUR TIME</Text>
-            <Text style={styles.resultTime}>{formatTime(finalTime)}</Text>
-            <Text style={styles.secondsDark}>SECONDS</Text>
-
-            <Text style={styles.resultText}>
-              {videoUri
-                ? 'Your attempt was recorded successfully.'
-                : 'Your attempt finished, but the video could not be confirmed.'}
-            </Text>
-
-            <Pressable
-              style={styles.primary}
-              onPress={submitAttempt}
-            >
-              <Text style={styles.primaryText}>SUBMIT ATTEMPT</Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.secondary}
-              onPress={() => {
-                resetAttempt();
-                setScreen('home');
-              }}
-            >
-              <Text style={styles.secondaryText}>DISCARD</Text>
-            </Pressable>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.resultScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.resultHeader}>
+            <Text style={styles.resultChallenge}>THE 568 CHALLENGE</Text>
+            <Text style={styles.resultYourTime}>YOUR TIME</Text>
+            <Text style={styles.resultTimeLarge}>{formatTime(finalTime)}</Text>
+            <Text style={styles.resultSecondsLabel}>SECONDS</Text>
           </View>
-        </View>
+
+          <View style={styles.unofficialBadge}>
+            <Text style={styles.unofficialBadgeText}>UNOFFICIAL RESULT</Text>
+          </View>
+
+          <Text style={styles.unofficialExplanation}>
+            Your attempt has been recorded, but it has not entered the RankSeal leaderboard yet.
+          </Text>
+
+          <View style={styles.resultStatusCard}>
+            <Text style={styles.resultStatusTitle}>What happens next?</Text>
+
+            <View style={styles.resultStepRow}>
+              <Text style={styles.resultStepNumber}>1</Text>
+              <Text style={styles.resultStepText}>
+                Your recorded attempt is checked against the official 568 rules.
+              </Text>
+            </View>
+
+            <View style={styles.resultStepRow}>
+              <Text style={styles.resultStepNumber}>2</Text>
+              <Text style={styles.resultStepText}>
+                The attempt is approved, rejected with a reason, or sent for further review.
+              </Text>
+            </View>
+
+            <View style={styles.resultStepRow}>
+              <Text style={styles.resultStepNumber}>3</Text>
+              <Text style={styles.resultStepText}>
+                Only verified results receive an official RankSeal ranking.
+              </Text>
+            </View>
+          </View>
+
+          {!videoUri ? (
+            <View style={styles.resultWarningCard}>
+              <Text style={styles.resultWarningTitle}>Recording could not be confirmed</Text>
+              <Text style={styles.resultWarningText}>
+                This attempt cannot be submitted for verification. Please try again.
+              </Text>
+            </View>
+          ) : null}
+
+          {submitError ? (
+            <Text style={styles.resultSubmitError}>{submitError}</Text>
+          ) : null}
+
+          <Pressable
+            style={[
+              styles.resultSubmitButton,
+              (!videoUri || submittingAttempt) && styles.resultSubmitButtonDisabled,
+            ]}
+            onPress={submitAttempt}
+            disabled={!videoUri || submittingAttempt}
+          >
+            <Text style={styles.resultSubmitButtonText}>
+              {submittingAttempt ? 'SUBMITTING…' : 'SUBMIT FOR VERIFICATION'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.resultDiscardButton}
+            onPress={() => {
+              resetAttempt();
+              setScreen('home');
+            }}
+            disabled={submittingAttempt}
+          >
+            <Text style={styles.resultDiscardText}>DISCARD ATTEMPT</Text>
+          </Pressable>
+
+          <Text style={styles.resultFootnote}>
+            Your time remains unofficial until verification is complete.
+          </Text>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1720,6 +1788,167 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     fontWeight: '900',
     color: '#FFF',
+  },
+  resultScreenContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 34,
+  },
+  resultHeader: {
+    alignItems: 'center',
+  },
+  resultChallenge: {
+    color: '#777',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.7,
+  },
+  resultYourTime: {
+    marginTop: 18,
+    color: '#777',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  resultTimeLarge: {
+    marginTop: 2,
+    color: '#111',
+    fontSize: 72,
+    lineHeight: 78,
+    fontWeight: '900',
+    letterSpacing: -2,
+  },
+  resultSecondsLabel: {
+    marginTop: -3,
+    color: '#111',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+  },
+  unofficialBadge: {
+    alignSelf: 'center',
+    marginTop: 22,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 15,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  unofficialBadgeText: {
+    color: '#333',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  unofficialExplanation: {
+    marginTop: 13,
+    paddingHorizontal: 8,
+    color: '#666',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  resultStatusCard: {
+    marginTop: 20,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  resultStatusTitle: {
+    marginBottom: 11,
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  resultStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 11,
+  },
+  resultStepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 10,
+    paddingTop: 3,
+    backgroundColor: '#111',
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  resultStepText: {
+    flex: 1,
+    color: '#444',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  resultWarningCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#ECEAE3',
+  },
+  resultWarningTitle: {
+    color: '#111',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  resultWarningText: {
+    marginTop: 4,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  resultSubmitError: {
+    marginTop: 12,
+    color: '#8A1C1C',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  resultSubmitButton: {
+    marginTop: 18,
+    paddingVertical: 17,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  resultSubmitButtonDisabled: {
+    opacity: 0.35,
+  },
+  resultSubmitButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  resultDiscardButton: {
+    marginTop: 9,
+    paddingVertical: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+  },
+  resultDiscardText: {
+    color: '#555',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+  },
+  resultFootnote: {
+    marginTop: 11,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
   },
   resultTime: {
     marginTop: 8,
