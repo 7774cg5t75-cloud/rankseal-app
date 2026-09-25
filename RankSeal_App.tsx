@@ -23,6 +23,7 @@ export default function App() {
   const [finalTime, setFinalTime] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [videoUri, setVideoUri] = useState(null);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -183,7 +184,7 @@ const submitAttempt = async () => {
                 Official attempts are recorded and verified before entering the leaderboard.
               </Text>
 
-              <Pressable style={styles.primary} onPress={() => setScreen('rules')}>
+              <Pressable style={styles.primary} onPress={() => { setRulesAccepted(false); setScreen('rules'); }}>
                 <Text style={styles.primaryText}>START OFFICIAL ATTEMPT</Text>
               </Pressable>
 
@@ -201,7 +202,7 @@ const submitAttempt = async () => {
               </Pressable>
               <Pressable
                 style={[styles.secondary, styles.halfButton]}
-                onPress={() => setScreen('rules')}
+                onPress={() => { setRulesAccepted(false); setScreen('rules'); }}
               >
                 <Text style={styles.secondaryTextSmall}>VIEW RULES</Text>
               </Pressable>
@@ -222,29 +223,65 @@ const submitAttempt = async () => {
   if (screen === 'rules') {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <Pressable onPress={() => setScreen('challenge568')}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.rulesScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={() => setScreen('challenge568')} style={styles.backButton}>
             <Text style={styles.back}>‹ Back</Text>
           </Pressable>
 
-          <View style={[styles.content, { paddingTop: 35 }]}>
-            <Text style={styles.eyebrow}>OFFICIAL ATTEMPT</Text>
-            <Text style={styles.title}>The 568 Challenge</Text>
+          <Text style={styles.eyebrow}>THE 568 CHALLENGE</Text>
+          <Text style={styles.title}>Official 568 Rules</Text>
+          <Text style={styles.bodyText}>
+            Follow these rules for your attempt to be eligible for the verified leaderboard.
+          </Text>
 
-            <View style={styles.card}>
-              <Text style={styles.rule}>1. Start with exactly 568 ml of water.</Text>
-              <Text style={styles.rule}>2. Keep yourself and the full glass visible.</Text>
-              <Text style={styles.rule}>3. Begin drinking after GO.</Text>
-              <Text style={styles.rule}>4. Press STOP only when you have finished.</Text>
-              <Text style={styles.rule}>5. Immediately turn the glass upside down.</Text>
-              <Text style={styles.rule}>6. Your attempt will be reviewed before ranking.</Text>
-            </View>
-
-            <Pressable style={styles.primary} onPress={openCamera}>
-              <Text style={styles.primaryText}>I'M READY</Text>
-            </Pressable>
+          <View style={styles.rulesSection}>
+            <Text style={styles.rulesSectionTitle}>Before you start</Text>
+            <Text style={styles.rule}>• Use exactly 568 ml of water.</Text>
+            <Text style={styles.rule}>• Use a suitable transparent glass or cup.</Text>
+            <Text style={styles.rule}>• Place the glass flat on a level surface.</Text>
+            <Text style={styles.rule}>• Keep yourself, the glass and the surface visible.</Text>
           </View>
-        </View>
+
+          <View style={styles.rulesSection}>
+            <Text style={styles.rulesSectionTitle}>During the attempt</Text>
+            <Text style={styles.rule}>• Do not begin drinking before GO.</Text>
+            <Text style={styles.rule}>• Drink the full 568 ml.</Text>
+            <Text style={styles.rule}>• Recording must remain continuous.</Text>
+            <Text style={styles.rule}>• Press STOP when you have finished drinking.</Text>
+          </View>
+
+          <View style={styles.rulesSection}>
+            <Text style={styles.rulesSectionTitle}>To finish</Text>
+            <Text style={styles.rule}>• Recording continues after STOP.</Text>
+            <Text style={styles.rule}>• Turn the glass upside down when instructed.</Text>
+            <Text style={styles.rule}>• Small residual drops are allowed.</Text>
+            <Text style={styles.rule}>• Your result only becomes official after verification.</Text>
+          </View>
+
+          <Pressable
+            style={styles.confirmationCard}
+            onPress={() => setRulesAccepted(!rulesAccepted)}
+          >
+            <View style={[styles.checkboxBox, rulesAccepted && styles.checkboxBoxChecked]}>
+              {rulesAccepted ? <Text style={styles.checkboxTick}>✓</Text> : null}
+            </View>
+            <Text style={styles.confirmationText}>
+              I understand the official rules and want to start an official attempt.
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.primary, !rulesAccepted && styles.primaryDisabled]}
+            onPress={openCamera}
+            disabled={!rulesAccepted}
+          >
+            <Text style={styles.primaryText}>CONTINUE TO CAMERA SETUP</Text>
+          </Pressable>
+        </ScrollView>
       </SafeAreaView>
     );
   }
