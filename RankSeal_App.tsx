@@ -26,6 +26,7 @@ export default function App() {
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [cameraSetupConfirmed, setCameraSetupConfirmed] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('front');
+  const [precheckConfirmed, setPrecheckConfirmed] = useState(false);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -52,6 +53,7 @@ export default function App() {
   const openCamera = () => {
     resetAttempt();
     setCameraSetupConfirmed(false);
+    setPrecheckConfirmed(false);
     setScreen('camera');
   };
 const submitAttempt = async () => {
@@ -410,12 +412,83 @@ const submitAttempt = async () => {
                       (!cameraReady || !cameraSetupConfirmed) && styles.cameraContinueDisabled,
                     ]}
                     disabled={!cameraReady || !cameraSetupConfirmed}
-                    onPress={() => setPhase('ready')}
+                    onPress={() => { setPrecheckConfirmed(false); setPhase('precheck'); }}
                   >
                     <Text style={styles.cameraContinueText}>
                       {cameraReady ? 'CONTINUE' : 'CAMERA LOADING…'}
                     </Text>
                   </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {phase === 'precheck' && (
+            <View style={styles.precheckLayout}>
+              <View style={styles.precheckTop}>
+                <Pressable
+                  style={styles.precheckBackButton}
+                  onPress={() => setPhase('setup')}
+                >
+                  <Text style={styles.precheckBackText}>‹ Back</Text>
+                </Pressable>
+
+                <View style={styles.precheckHeaderCard}>
+                  <Text style={styles.precheckEyebrow}>OFFICIAL 568 ATTEMPT</Text>
+                  <Text style={styles.precheckTitle}>Before you start</Text>
+                  <Text style={styles.precheckIntro}>
+                    Check the starting position carefully before beginning the countdown.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.precheckFrame}>
+                <Text style={styles.precheckFrameText}>KEEP THE FULL GLASS + YOURSELF IN FRAME</Text>
+              </View>
+
+              <View style={styles.precheckBottom}>
+                <View style={styles.precheckCard}>
+                  <Text style={styles.precheckCardTitle}>Starting-position checklist</Text>
+                  <Text style={styles.precheckItem}>○ Glass contains exactly 568 ml of water</Text>
+                  <Text style={styles.precheckItem}>○ Glass is upright</Text>
+                  <Text style={styles.precheckItem}>○ Glass is flat on a level surface</Text>
+                  <Text style={styles.precheckItem}>○ Full glass is clearly visible</Text>
+                  <Text style={styles.precheckItem}>○ You are clearly visible</Text>
+                  <Text style={styles.precheckItem}>○ Nothing obstructs the camera</Text>
+
+                  <Pressable
+                    style={styles.precheckConfirmationRow}
+                    onPress={() => setPrecheckConfirmed(!precheckConfirmed)}
+                  >
+                    <View
+                      style={[
+                        styles.precheckCheckbox,
+                        precheckConfirmed && styles.precheckCheckboxChecked,
+                      ]}
+                    >
+                      {precheckConfirmed ? (
+                        <Text style={styles.precheckCheckboxTick}>✓</Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.precheckConfirmationText}>
+                      Everything is set up correctly.
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.precheckContinueButton,
+                      !precheckConfirmed && styles.precheckContinueDisabled,
+                    ]}
+                    disabled={!precheckConfirmed}
+                    onPress={() => setPhase('ready')}
+                  >
+                    <Text style={styles.precheckContinueText}>READY FOR OFFICIAL ATTEMPT</Text>
+                  </Pressable>
+
+                  <Text style={styles.precheckNote}>
+                    These conditions will also be checked during verification.
+                  </Text>
                 </View>
               </View>
             </View>
@@ -1060,6 +1133,155 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '900',
     letterSpacing: 0.45,
+  },
+  precheckLayout: {
+    flex: 1,
+  },
+  precheckTop: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  precheckBackButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingLeft: 44,
+    paddingRight: 12,
+  },
+  precheckBackText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  precheckHeaderCard: {
+    marginTop: 2,
+    paddingHorizontal: 14,
+    paddingTop: 9,
+    paddingBottom: 9,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+  },
+  precheckEyebrow: {
+    color: '#D8D8D8',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  precheckTitle: {
+    marginTop: 2,
+    color: '#FFF',
+    fontSize: 19,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  precheckIntro: {
+    marginTop: 3,
+    color: '#F0F0F0',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  precheckFrame: {
+    flex: 1,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    minHeight: 230,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.86)',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 7,
+  },
+  precheckFrameText: {
+    color: '#FFF',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 11,
+    overflow: 'hidden',
+  },
+  precheckBottom: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  precheckCard: {
+    paddingHorizontal: 11,
+    paddingTop: 9,
+    paddingBottom: 8,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+  },
+  precheckCardTitle: {
+    color: '#111',
+    fontSize: 12.5,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  precheckItem: {
+    color: '#2B2B2B',
+    fontSize: 9.8,
+    lineHeight: 13.5,
+  },
+  precheckConfirmationRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#DDD',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  precheckCheckbox: {
+    width: 19,
+    height: 19,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#6D6D68',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    marginRight: 7,
+  },
+  precheckCheckboxChecked: {
+    backgroundColor: '#111',
+    borderColor: '#111',
+  },
+  precheckCheckboxTick: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  precheckConfirmationText: {
+    flex: 1,
+    color: '#111',
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  precheckContinueButton: {
+    marginTop: 6,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  precheckContinueDisabled: {
+    opacity: 0.35,
+  },
+  precheckContinueText: {
+    color: '#FFF',
+    fontSize: 11.8,
+    fontWeight: '900',
+    letterSpacing: 0.45,
+  },
+  precheckNote: {
+    marginTop: 4,
+    color: '#666',
+    fontSize: 9,
+    textAlign: 'center',
   },
   cameraCenter: {
     flex: 1,
