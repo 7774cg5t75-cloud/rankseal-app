@@ -24,6 +24,7 @@ export default function App() {
   const [cameraReady, setCameraReady] = useState(false);
   const [videoUri, setVideoUri] = useState(null);
   const [rulesAccepted, setRulesAccepted] = useState(false);
+  const [cameraSetupConfirmed, setCameraSetupConfirmed] = useState(false);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -39,7 +40,7 @@ export default function App() {
       clearInterval(timerRef.current);
     }
 
-    setPhase('ready');
+    setPhase('setup');
     setCountdown(3);
     setRunning(false);
     setElapsed(0);
@@ -49,6 +50,7 @@ export default function App() {
 
   const openCamera = () => {
     resetAttempt();
+    setCameraSetupConfirmed(false);
     setScreen('camera');
   };
 const submitAttempt = async () => {
@@ -279,7 +281,7 @@ const submitAttempt = async () => {
             onPress={openCamera}
             disabled={!rulesAccepted}
           >
-            <Text style={styles.primaryText}>CONTINUE TO CAMERA SETUP</Text>
+            <Text style={styles.rulesPrimaryText}>CONTINUE TO CAMERA SETUP</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -330,12 +332,84 @@ const submitAttempt = async () => {
         />
 
         <SafeAreaView style={styles.cameraOverlay}>
+          {phase === 'setup' && (
+            <>
+              <View style={styles.cameraSetupTop}>
+                <Pressable
+                  style={styles.cameraBackButton}
+                  onPress={() => setScreen('rules')}
+                >
+                  <Text style={styles.cameraBackText}>‹ Back</Text>
+                </Pressable>
+
+                <View style={styles.cameraSetupHeaderCard}>
+                  <Text style={styles.cameraSetupEyebrow}>OFFICIAL 568 ATTEMPT</Text>
+                  <Text style={styles.cameraSetupTitle}>Set up your camera</Text>
+                  <Text style={styles.cameraSetupIntro}>
+                    Position your phone so your upper body, the full glass and the surface underneath it stay visible.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.cameraGuide}>
+                <Text style={styles.cameraGuideText}>KEEP YOURSELF + GLASS + SURFACE IN FRAME</Text>
+              </View>
+
+              <View style={styles.cameraSetupBottom}>
+                <View style={styles.cameraChecklistCard}>
+                  <Text style={styles.cameraChecklistTitle}>Before continuing, make sure:</Text>
+                  <Text style={styles.cameraChecklistItem}>○ You are clearly visible</Text>
+                  <Text style={styles.cameraChecklistItem}>○ The entire glass is visible</Text>
+                  <Text style={styles.cameraChecklistItem}>○ The table or surface is visible</Text>
+                  <Text style={styles.cameraChecklistItem}>○ Nothing blocks the camera</Text>
+                  <Text style={styles.cameraChecklistItem}>○ The phone is stable</Text>
+
+                  <Pressable
+                    style={styles.cameraConfirmationRow}
+                    onPress={() => setCameraSetupConfirmed(!cameraSetupConfirmed)}
+                  >
+                    <View
+                      style={[
+                        styles.cameraCheckbox,
+                        cameraSetupConfirmed && styles.cameraCheckboxChecked,
+                      ]}
+                    >
+                      {cameraSetupConfirmed ? (
+                        <Text style={styles.cameraCheckboxTick}>✓</Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.cameraConfirmationText}>
+                      My camera is positioned correctly.
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.cameraContinueButton,
+                      (!cameraReady || !cameraSetupConfirmed) && styles.cameraContinueDisabled,
+                    ]}
+                    disabled={!cameraReady || !cameraSetupConfirmed}
+                    onPress={() => setPhase('ready')}
+                  >
+                    <Text style={styles.cameraContinueText}>
+                      {cameraReady ? 'CONTINUE' : 'CAMERA LOADING…'}
+                    </Text>
+                  </Pressable>
+
+                  <Text style={styles.cameraReviewNote}>
+                    Your recording will be checked during verification.
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
           {phase === 'ready' && (
             <>
               <View style={styles.cameraTopCard}>
                 <Text style={styles.camera568}>568</Text>
                 <Text style={styles.cameraInstruction}>
-                  Make sure you and the full glass are visible.
+                  Camera setup confirmed. Get ready for the official attempt.
                 </Text>
               </View>
 
@@ -724,6 +798,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     alignItems: 'center',
   },
+  rulesPrimaryText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+  },
   primaryDisabled: {
     opacity: 0.35,
   },
@@ -796,6 +876,148 @@ const styles = StyleSheet.create({
   cameraOverlay: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  cameraSetupTop: {
+    paddingHorizontal: 18,
+    paddingTop: 6,
+  },
+  cameraBackButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 7,
+    paddingRight: 14,
+  },
+  cameraBackText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  cameraSetupHeaderCard: {
+    marginTop: 4,
+    padding: 15,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+  },
+  cameraSetupEyebrow: {
+    color: '#D8D8D8',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+  },
+  cameraSetupTitle: {
+    marginTop: 5,
+    color: '#FFF',
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '900',
+  },
+  cameraSetupIntro: {
+    marginTop: 6,
+    color: '#F0F0F0',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cameraGuide: {
+    position: 'absolute',
+    left: 26,
+    right: 26,
+    top: '27%',
+    height: '27%',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.78)',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 10,
+  },
+  cameraGuideText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cameraSetupBottom: {
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+  },
+  cameraChecklistCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+  },
+  cameraChecklistTitle: {
+    color: '#111',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  cameraChecklistItem: {
+    color: '#2B2B2B',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 3,
+  },
+  cameraConfirmationRow: {
+    marginTop: 10,
+    paddingTop: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#DDD',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cameraCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#6D6D68',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    marginRight: 10,
+  },
+  cameraCheckboxChecked: {
+    backgroundColor: '#111',
+    borderColor: '#111',
+  },
+  cameraCheckboxTick: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  cameraConfirmationText: {
+    flex: 1,
+    color: '#111',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  cameraContinueButton: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  cameraContinueDisabled: {
+    opacity: 0.35,
+  },
+  cameraContinueText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  cameraReviewNote: {
+    marginTop: 8,
+    color: '#666',
+    fontSize: 11,
+    textAlign: 'center',
   },
   cameraCenter: {
     flex: 1,
