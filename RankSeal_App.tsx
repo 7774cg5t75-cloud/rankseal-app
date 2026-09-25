@@ -1,0 +1,1001 @@
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(
+  'https://gilbsqbfrvldpscbfert.supabase.co',
+  'sb_publishable_ROci_eJJYN6yRqjtmjj99Q_VmG95ZIW'
+);
+export default function App() {
+  const [screen, setScreen] = useState('home');
+  const [phase, setPhase] = useState('ready');
+
+  const [countdown, setCountdown] = useState(3);
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [finalTime, setFinalTime] = useState(0);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [videoUri, setVideoUri] = useState(null);
+
+  const [permission, requestPermission] = useCameraPermissions();
+
+  const cameraRef = useRef(null);
+  const timerRef = useRef(null);
+  const startRef = useRef(0);
+  const recordingPromiseRef = useRef(null);
+
+  const formatTime = (ms) => ((ms || 0) / 1000).toFixed(2);
+
+  const resetAttempt = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    setPhase('ready');
+    setCountdown(3);
+    setRunning(false);
+    setElapsed(0);
+    setFinalTime(0);
+    setVideoUri(null);
+  };
+
+  const openCamera = () => {
+    resetAttempt();
+    setScreen('camera');
+  };
+const submitAttempt = async () => {
+  const { error } = await supabase
+    .from('attempts')
+    .insert({
+      time_ms: finalTime,
+      video_path: 'prototype-test',
+      status: 'pending',
+    });
+
+  if (error) {
+    console.log('Submit error:', error);
+    return;
+  }
+
+  setScreen('pending');
+};
+  const startCountdown = () => {
+    if (!cameraRef.current || !cameraReady) return;
+
+    setPhase('countdown');
+    setCountdown(3);
+
+    try {
+      recordingPromiseRef.current = cameraRef.current.recordAsync();
+    } catch (error) {
+      console.log('Could not start recording:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (screen !== 'camera' || phase !== 'countdown') return;
+
+    if (countdown <= 0) {
+      startRef.current = Date.now();
+      setElapsed(0);
+      setRunning(true);
+      setPhase('drinking');
+      return;
+    }
+
+    const id = setTimeout(() => {
+      setCountdown((value) => value - 1);
+    }, 1000);
+
+    return () => clearTimeout(id);
+  }, [screen, phase, countdown]);
+
+  useEffect(() => {
+    if (!running) return;
+
+    timerRef.current = setInterval(() => {
+      setElapsed(Date.now() - startRef.current);
+    }, 30);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [running]);
+
+  const stopAttempt = () => {
+    if (!running) return;
+
+    const result = Date.now() - startRef.current;
+
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    setElapsed(result);
+    setFinalTime(result);
+    setRunning(false);
+
+    // IMPORTANT: we do NOT stop the camera recording here.
+    setPhase('flip');
+  };
+
+  const finishRecording = async () => {
+    try {
+      if (cameraRef.current) {
+        cameraRef.current.stopRecording();
+      }
+
+      if (recordingPromiseRef.current) {
+        const video = await recordingPromiseRef.current;
+        if (video?.uri) {
+          setVideoUri(video.uri);
+        }
+      }
+    } catch (error) {
+      console.log('Could not finish recording:', error);
+    }
+
+    setScreen('result');
+  };
+
+  if (screen === 'challenge568') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <Pressable onPress={() => setScreen('home')}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <View style={styles.content}>
+            <Text style={styles.eyebrow}>RANKSEAL CHALLENGE</Text>
+            <Text style={styles.title}>The 568 Challenge</Text>
+            <Text style={styles.challengeDescription}>
+              How fast can you drink 568 ml of water?
+            </Text>
+            <Text style={styles.challengeSubline}>Fastest verified time wins.</Text>
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>YOUR BEST</Text>
+                <Text style={styles.statValue}>Not ranked</Text>
+                <Text style={styles.statHint}>Complete a verified attempt</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>WORLD LEADER</Text>
+                <Text style={styles.statValue}>—</Text>
+                <Text style={styles.statHint}>Verified results only</Text>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.officialLine}>✓ Official RankSeal challenge</Text>
+              <Text style={styles.bodyText}>
+                Official attempts are recorded and verified before entering the leaderboard.
+              </Text>
+
+              <Pressable style={styles.primary} onPress={() => setScreen('rules')}>
+                <Text style={styles.primaryText}>START OFFICIAL ATTEMPT</Text>
+              </Pressable>
+
+              <Pressable style={[styles.secondary, styles.disabledButton]} disabled>
+                <Text style={styles.secondaryText}>PRACTICE — COMING SOON</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.twoButtonRow}>
+              <Pressable
+                style={[styles.secondary, styles.halfButton]}
+                onPress={() => setScreen('leaderboard')}
+              >
+                <Text style={styles.secondaryTextSmall}>VIEW LEADERBOARD</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.secondary, styles.halfButton]}
+                onPress={() => setScreen('rules')}
+              >
+                <Text style={styles.secondaryTextSmall}>VIEW RULES</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>What makes it official?</Text>
+              <Text style={styles.bodyText}>
+                Your attempt must follow the challenge rules and pass RankSeal verification before it receives a ranking.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'rules') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <Pressable onPress={() => setScreen('challenge568')}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <View style={[styles.content, { paddingTop: 35 }]}>
+            <Text style={styles.eyebrow}>OFFICIAL ATTEMPT</Text>
+            <Text style={styles.title}>The 568 Challenge</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.rule}>1. Start with exactly 568 ml of water.</Text>
+              <Text style={styles.rule}>2. Keep yourself and the full glass visible.</Text>
+              <Text style={styles.rule}>3. Begin drinking after GO.</Text>
+              <Text style={styles.rule}>4. Press STOP only when you have finished.</Text>
+              <Text style={styles.rule}>5. Immediately turn the glass upside down.</Text>
+              <Text style={styles.rule}>6. Your attempt will be reviewed before ranking.</Text>
+            </View>
+
+            <Pressable style={styles.primary} onPress={openCamera}>
+              <Text style={styles.primaryText}>I'M READY</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'camera') {
+    if (!permission) {
+      return (
+        <View style={styles.permissionScreen}>
+          <Text style={styles.title}>Loading camera…</Text>
+        </View>
+      );
+    }
+
+    if (!permission.granted) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.permissionScreen}>
+            <Text style={styles.eyebrow}>CAMERA ACCESS</Text>
+            <Text style={styles.title}>Camera permission needed</Text>
+            <Text style={styles.bodyText}>
+              The 568 Challenge needs camera access so an attempt can be recorded and reviewed.
+            </Text>
+
+            <Pressable style={styles.primary} onPress={requestPermission}>
+              <Text style={styles.primaryText}>ALLOW CAMERA</Text>
+            </Pressable>
+
+            <Pressable style={styles.secondary} onPress={() => setScreen('rules')}>
+              <Text style={styles.secondaryText}>BACK</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <View style={styles.cameraScreen}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="front"
+          mode="video"
+          mute={true}
+          mirror={true}
+          onCameraReady={() => setCameraReady(true)}
+        />
+
+        <SafeAreaView style={styles.cameraOverlay}>
+          {phase === 'ready' && (
+            <>
+              <View style={styles.cameraTopCard}>
+                <Text style={styles.camera568}>568</Text>
+                <Text style={styles.cameraInstruction}>
+                  Make sure you and the full glass are visible.
+                </Text>
+              </View>
+
+              <View style={styles.cameraBottom}>
+                <Pressable
+                  style={[
+                    styles.whiteButton,
+                    !cameraReady && styles.disabledButton,
+                  ]}
+                  disabled={!cameraReady}
+                  onPress={startCountdown}
+                >
+                  <Text style={styles.whiteButtonText}>
+                    {cameraReady ? 'START COUNTDOWN' : 'CAMERA LOADING…'}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+
+          {phase === 'countdown' && (
+            <View style={styles.cameraCenter}>
+              <Text style={styles.countdown}>
+                {countdown > 0 ? countdown : 'GO!'}
+              </Text>
+            </View>
+          )}
+
+          {phase === 'drinking' && (
+            <>
+              <View style={styles.cameraCenter}>
+                <Text style={styles.go}>GO!</Text>
+                <Text style={styles.liveTime}>{formatTime(elapsed)}</Text>
+                <Text style={styles.secondsLight}>SECONDS</Text>
+              </View>
+
+              <View style={styles.cameraBottom}>
+                <Pressable style={styles.stopButton} onPress={stopAttempt}>
+                  <Text style={styles.stopButtonText}>STOP</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+
+          {phase === 'flip' && (
+            <>
+              <View style={styles.flipCard}>
+                <Text style={styles.frozenTime}>{formatTime(finalTime)} SEC</Text>
+                <Text style={styles.flipTitle}>TURN THE GLASS UPSIDE DOWN</Text>
+                <Text style={styles.cameraInstruction}>
+                  Keep the glass inverted and visible. Recording is still running.
+                </Text>
+              </View>
+
+              <View style={styles.cameraBottom}>
+                <Pressable style={styles.whiteButton} onPress={finishRecording}>
+                  <Text style={styles.whiteButtonText}>FINISH RECORDING</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (screen === 'result') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <View style={styles.center}>
+            <Text style={styles.eyebrow}>YOUR TIME</Text>
+            <Text style={styles.resultTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.secondsDark}>SECONDS</Text>
+
+            <Text style={styles.resultText}>
+              {videoUri
+                ? 'Your attempt was recorded successfully.'
+                : 'Your attempt finished, but the video could not be confirmed.'}
+            </Text>
+
+            <Pressable
+              style={styles.primary}
+              onPress={submitAttempt}
+            >
+              <Text style={styles.primaryText}>SUBMIT ATTEMPT</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.secondary}
+              onPress={() => {
+                resetAttempt();
+                setScreen('home');
+              }}
+            >
+              <Text style={styles.secondaryText}>DISCARD</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'pending') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <View style={styles.center}>
+            <Text style={styles.tick}>✓</Text>
+            <Text style={styles.title}>Attempt submitted</Text>
+            <Text style={styles.pendingTime}>{formatTime(finalTime)} seconds</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.eyebrow}>STATUS</Text>
+              <Text style={styles.pendingTitle}>PENDING REVIEW</Text>
+              <Text style={styles.bodyText}>
+                Prototype stage: the review upload system is the next feature we will build.
+              </Text>
+            </View>
+
+            <Pressable style={styles.primary} onPress={() => setScreen('home')}>
+              <Text style={styles.primaryText}>BACK TO HOME</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'leaderboard') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <Pressable onPress={() => setScreen('challenge568')}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <View style={styles.content}>
+            <Text style={styles.eyebrow}>WORLD RANKINGS</Text>
+            <Text style={styles.title}>Leaderboard</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.emptyTitle}>No verified attempts yet.</Text>
+              <Text style={styles.bodyText}>
+                The first approved attempt becomes World #1.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.homeContainer}>
+        <View>
+          <Text style={styles.brand}>RANKSEAL</Text>
+          <Text style={styles.brandTagline}>Verified challenges. Real rankings.</Text>
+
+          <View style={[styles.card, styles.featuredCard]}>
+            <View style={styles.badgeRow}>
+              <View style={styles.liveBadge}>
+                <Text style={styles.liveBadgeText}>FEATURED</Text>
+              </View>
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
+
+            <Text style={styles.homeChallengeTitle}>The 568 Challenge</Text>
+            <Text style={styles.homeChallengeDescription}>
+              How fast can you drink 568 ml of water?
+            </Text>
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>MEASUREMENT</Text>
+                <Text style={styles.statValueSmall}>Fastest verified time</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>LEADERBOARD</Text>
+                <Text style={styles.statValueSmall}>Worldwide</Text>
+              </View>
+            </View>
+
+            <Text style={styles.officialLine}>✓ Official RankSeal leaderboard</Text>
+
+            <Pressable
+              style={styles.primary}
+              onPress={() => setScreen('challenge568')}
+            >
+              <Text style={styles.primaryText}>VIEW CHALLENGE</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.sectionHeading}>More challenges</Text>
+          <View style={[styles.card, styles.comingSoonCard]}>
+            <View style={styles.badgeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.homeChallengeTitleSmall}>One-Leg Balance</Text>
+                <Text style={styles.bodyText}>How long can you stay on one leg?</Text>
+              </View>
+              <View style={styles.soonBadge}>
+                <Text style={styles.soonBadgeText}>COMING SOON</Text>
+              </View>
+            </View>
+            <Text style={styles.measurementLabel}>Longest verified time</Text>
+          </View>
+        </View>
+
+        <View>
+          <View style={styles.bottomNav}>
+            <View style={styles.navItemActive}>
+              <Text style={styles.navTextActive}>Home</Text>
+            </View>
+            <Pressable style={styles.navItem} onPress={() => setScreen('challenge568')}>
+              <Text style={styles.navText}>Challenges</Text>
+            </Pressable>
+            <Pressable style={styles.navItem} onPress={() => setScreen('leaderboard')}>
+              <Text style={styles.navText}>Rankings</Text>
+            </Pressable>
+            <View style={[styles.navItem, styles.navItemDisabled]}>
+              <Text style={styles.navText}>Profile</Text>
+            </View>
+          </View>
+          <Text style={styles.footer}>Prototype • 18+ • Water only • 568 ml</Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#F5F4EF',
+  },
+  container: {
+    flex: 1,
+    padding: 28,
+    justifyContent: 'space-between',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  the: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 4,
+    color: '#111',
+  },
+  number: {
+    fontSize: 110,
+    lineHeight: 118,
+    fontWeight: '900',
+    letterSpacing: -7,
+    color: '#111',
+  },
+  challenge: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 3,
+    color: '#111',
+  },
+  tagline: {
+    marginTop: 20,
+    fontSize: 20,
+    lineHeight: 28,
+    color: '#555',
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    color: '#777',
+  },
+  title: {
+    marginTop: 8,
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#111',
+  },
+  card: {
+    marginTop: 28,
+    padding: 22,
+    borderRadius: 22,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  rule: {
+    fontSize: 17,
+    lineHeight: 25,
+    color: '#222',
+    marginBottom: 12,
+  },
+  bodyText: {
+    marginTop: 8,
+    fontSize: 16,
+    lineHeight: 23,
+    color: '#666',
+  },
+  emptyTitle: {
+    marginTop: 8,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111',
+  },
+  primary: {
+    marginTop: 28,
+    paddingVertical: 20,
+    borderRadius: 18,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  primaryText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  secondary: {
+    marginTop: 12,
+    paddingVertical: 18,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D9D7CF',
+  },
+  secondaryText: {
+    color: '#111',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  footer: {
+    marginTop: 18,
+    textAlign: 'center',
+    color: '#777',
+    fontSize: 12,
+  },
+  back: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111',
+  },
+  permissionScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 28,
+    backgroundColor: '#F5F4EF',
+  },
+  cameraScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  cameraOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cameraCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraTopCard: {
+    margin: 24,
+    padding: 18,
+    backgroundColor: 'rgba(0,0,0,0.60)',
+    borderRadius: 20,
+  },
+  camera568: {
+    color: '#FFF',
+    fontSize: 46,
+    fontWeight: '900',
+  },
+  cameraInstruction: {
+    marginTop: 8,
+    color: '#FFF',
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  cameraBottom: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  whiteButton: {
+    paddingVertical: 20,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  whiteButtonText: {
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  countdown: {
+    textAlign: 'center',
+    fontSize: 150,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  go: {
+    textAlign: 'center',
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  liveTime: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 86,
+    fontWeight: '900',
+    letterSpacing: -4,
+    color: '#FFF',
+  },
+  secondsLight: {
+    textAlign: 'center',
+    fontSize: 18,
+    letterSpacing: 3,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  stopButton: {
+    paddingVertical: 24,
+    borderRadius: 18,
+    backgroundColor: '#D92D20',
+    alignItems: 'center',
+  },
+  stopButtonText: {
+    color: '#FFF',
+    fontSize: 25,
+    fontWeight: '900',
+  },
+  flipCard: {
+    margin: 24,
+    marginTop: 70,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  frozenTime: {
+    fontSize: 46,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  flipTitle: {
+    marginTop: 24,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  resultTime: {
+    marginTop: 8,
+    fontSize: 100,
+    lineHeight: 108,
+    fontWeight: '900',
+    letterSpacing: -5,
+    color: '#111',
+  },
+  secondsDark: {
+    fontSize: 18,
+    letterSpacing: 3,
+    fontWeight: '900',
+    color: '#666',
+  },
+  resultText: {
+    marginTop: 18,
+    fontSize: 17,
+    lineHeight: 24,
+    color: '#666',
+  },
+  tick: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#111',
+  },
+  pendingTime: {
+    marginTop: 10,
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#111',
+  },
+  pendingTitle: {
+    marginTop: 8,
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111',
+  },
+  homeContainer: {
+    flex: 1,
+    padding: 22,
+    justifyContent: 'space-between',
+  },
+  brand: {
+    marginTop: 8,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    color: '#111',
+  },
+  brandTagline: {
+    marginTop: 4,
+    fontSize: 16,
+    color: '#666',
+  },
+  featuredCard: {
+    marginTop: 22,
+  },
+  comingSoonCard: {
+    marginTop: 10,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  liveBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#E8E6DD',
+  },
+  liveBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    color: '#111',
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#777',
+  },
+  soonBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D9D7CF',
+  },
+  soonBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#666',
+  },
+  homeChallengeTitle: {
+    marginTop: 18,
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#111',
+  },
+  homeChallengeTitleSmall: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#111',
+  },
+  homeChallengeDescription: {
+    marginTop: 8,
+    fontSize: 17,
+    lineHeight: 24,
+    color: '#444',
+  },
+  challengeDescription: {
+    marginTop: 12,
+    fontSize: 20,
+    lineHeight: 28,
+    color: '#333',
+  },
+  challengeSubline: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#555',
+  },
+  statsRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    backgroundColor: '#FAF9F5',
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    color: '#777',
+  },
+  statValue: {
+    marginTop: 7,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111',
+  },
+  statValueSmall: {
+    marginTop: 7,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '800',
+    color: '#111',
+  },
+  statHint: {
+    marginTop: 5,
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#777',
+  },
+  officialLine: {
+    marginTop: 16,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#222',
+  },
+  sectionHeading: {
+    marginTop: 20,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111',
+  },
+  measurementLabel: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#333',
+  },
+  twoButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  halfButton: {
+    flex: 1,
+  },
+  secondaryTextSmall: {
+    color: '#111',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  infoCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE2',
+  },
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#111',
+  },
+  bottomNav: {
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#D9D7CF',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  navItem: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  navItemActive: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#E8E6DD',
+  },
+  navItemDisabled: {
+    opacity: 0.45,
+  },
+  navText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+  },
+  navTextActive: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#111',
+  },
+
+});
