@@ -27,6 +27,7 @@ export default function App() {
   const [cameraSetupConfirmed, setCameraSetupConfirmed] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('front');
   const [precheckConfirmed, setPrecheckConfirmed] = useState(false);
+  const [flipHoldReady, setFlipHoldReady] = useState(false);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -114,6 +115,19 @@ const submitAttempt = async () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [running]);
+
+  useEffect(() => {
+    if (phase !== 'flip') {
+      setFlipHoldReady(false);
+      return;
+    }
+
+    const holdTimer = setTimeout(() => {
+      setFlipHoldReady(true);
+    }, 3000);
+
+    return () => clearTimeout(holdTimer);
+  }, [phase]);
 
   const stopAttempt = () => {
     if (!running) return;
@@ -577,23 +591,53 @@ const submitAttempt = async () => {
           )}
 
           {phase === 'flip' && (
-            <View style={styles.liveAttemptLayout}>
+            <View style={styles.finishVerificationLayout}>
               <View style={styles.liveRecordingPill}>
                 <Text style={styles.recordingPillText}>● RECORDING</Text>
               </View>
 
-              <View style={styles.flipCard}>
-                <Text style={styles.frozenTime}>{formatTime(finalTime)} SEC</Text>
-                <Text style={styles.flipTitle}>TURN THE GLASS UPSIDE DOWN</Text>
-                <Text style={styles.cameraInstruction}>
-                  Keep the glass inverted and visible. Recording is still running.
-                </Text>
+              <View style={styles.finishVerificationTopCard}>
+                <Text style={styles.finishStoppedLabel}>TIME STOPPED</Text>
+                <Text style={styles.finishFrozenTime}>{formatTime(finalTime)}</Text>
+                <Text style={styles.finishSeconds}>SECONDS</Text>
               </View>
 
-              <View style={styles.cameraBottom}>
-                <Pressable style={styles.whiteButton} onPress={finishRecording}>
-                  <Text style={styles.whiteButtonText}>FINISH RECORDING</Text>
-                </Pressable>
+              <View style={styles.finishGuide}>
+                <Text style={styles.finishGuideTitle}>TURN THE GLASS UPSIDE DOWN</Text>
+                <Text style={styles.finishGuideText}>
+                  Hold the full glass inverted where the camera can clearly see it.
+                </Text>
+
+                <View style={styles.finishInstructionPill}>
+                  <Text style={styles.finishInstructionText}>
+                    KEEP THE GLASS UPSIDE DOWN + IN FRAME
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.finishVerificationBottom}>
+                <View style={styles.finishVerificationCard}>
+                  <Text style={styles.finishChecklistItem}>✓ Competitive time has stopped</Text>
+                  <Text style={styles.finishChecklistItem}>● Recording is still running</Text>
+                  <Text style={styles.finishChecklistItem}>✓ Small residual drops are allowed</Text>
+
+                  <Pressable
+                    style={[
+                      styles.finishRecordingButton,
+                      !flipHoldReady && styles.finishRecordingButtonDisabled,
+                    ]}
+                    onPress={finishRecording}
+                    disabled={!flipHoldReady}
+                  >
+                    <Text style={styles.finishRecordingButtonText}>
+                      {flipHoldReady ? 'FINISH RECORDING' : 'HOLD GLASS IN VIEW…'}
+                    </Text>
+                  </Pressable>
+
+                  <Text style={styles.finishVerificationNote}>
+                    Keep the glass visible until recording has finished.
+                  </Text>
+                </View>
               </View>
             </View>
           )}
@@ -1425,6 +1469,127 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.2,
+  },
+  finishVerificationLayout: {
+    flex: 1,
+  },
+  finishVerificationTopCard: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.66)',
+    alignItems: 'center',
+  },
+  finishStoppedLabel: {
+    color: '#D8D8D8',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  finishFrozenTime: {
+    marginTop: 2,
+    color: '#FFF',
+    fontSize: 38,
+    lineHeight: 43,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  finishSeconds: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  finishGuide: {
+    flex: 1,
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 10,
+    minHeight: 250,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.86)',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  finishGuideTitle: {
+    color: '#FFF',
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '900',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.75)',
+    textShadowRadius: 8,
+  },
+  finishGuideText: {
+    marginTop: 9,
+    color: '#FFF',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.75)',
+    textShadowRadius: 8,
+  },
+  finishInstructionPill: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+  },
+  finishInstructionText: {
+    color: '#FFF',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  finishVerificationBottom: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  finishVerificationCard: {
+    paddingHorizontal: 13,
+    paddingTop: 10,
+    paddingBottom: 9,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+  },
+  finishChecklistItem: {
+    color: '#222',
+    fontSize: 10.5,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  finishRecordingButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 13,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  finishRecordingButtonDisabled: {
+    opacity: 0.35,
+  },
+  finishRecordingButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+  },
+  finishVerificationNote: {
+    marginTop: 5,
+    color: '#666',
+    fontSize: 9,
+    textAlign: 'center',
   },
   liveAttemptLayout: {
     flex: 1,
