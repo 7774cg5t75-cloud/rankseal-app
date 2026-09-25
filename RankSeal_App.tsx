@@ -2071,24 +2071,24 @@ const styles = StyleSheet.create({
   pendingScreenContent: {
     flexGrow: 1,
     paddingHorizontal: 22,
-    paddingTop: 20,
+    paddingTop: 62,
     paddingBottom: 34,
   },
   pendingHero: {
     alignItems: 'center',
   },
   pendingTickCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: '#111',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pendingTickMark: {
     color: '#FFF',
-    fontSize: 40,
-    lineHeight: 43,
+    fontSize: 36,
+    lineHeight: 39,
     fontWeight: '900',
   },
   pendingEyebrow: {
@@ -2101,11 +2101,11 @@ const styles = StyleSheet.create({
   pendingTitleLarge: {
     marginTop: 6,
     color: '#111',
-    fontSize: 32,
-    lineHeight: 37,
+    fontSize: 28,
+    lineHeight: 33,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -0.7,
+    letterSpacing: -0.5,
   },
   pendingSubmittedTime: {
     marginTop: 13,
