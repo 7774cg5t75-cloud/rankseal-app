@@ -25,6 +25,7 @@ export default function App() {
   const [videoUri, setVideoUri] = useState(null);
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [cameraSetupConfirmed, setCameraSetupConfirmed] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState('front');
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -324,10 +325,10 @@ const submitAttempt = async () => {
         <CameraView
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
-          facing="front"
+          facing={cameraFacing}
           mode="video"
           mute={true}
-          mirror={true}
+          mirror={cameraFacing === 'front'}
           onCameraReady={() => setCameraReady(true)}
         />
 
@@ -352,6 +353,19 @@ const submitAttempt = async () => {
               </View>
 
               <View style={styles.cameraGuide}>
+                <Pressable
+                  style={styles.cameraSwitchButton}
+                  onPress={() => {
+                    setCameraReady(false);
+                    setCameraSetupConfirmed(false);
+                    setCameraFacing((current) => (current === 'front' ? 'back' : 'front'));
+                  }}
+                >
+                  <Text style={styles.cameraSwitchText}>
+                    {cameraFacing === 'front' ? '↻ USE REAR CAMERA' : '↻ USE SELFIE CAMERA'}
+                  </Text>
+                </Pressable>
+
                 <Text style={styles.cameraGuideText}>KEEP YOURSELF + GLASS + SURFACE IN FRAME</Text>
               </View>
 
@@ -938,6 +952,23 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 7,
+  },
+  cameraSwitchButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+  },
+  cameraSwitchText: {
+    color: '#FFF',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   cameraGuideText: {
     color: '#FFF',
