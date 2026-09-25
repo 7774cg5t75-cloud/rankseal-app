@@ -333,7 +333,7 @@ const submitAttempt = async () => {
 
         <SafeAreaView style={styles.cameraOverlay}>
           {phase === 'setup' && (
-            <>
+            <View style={styles.cameraSetupLayout}>
               <View style={styles.cameraSetupTop}>
                 <Pressable
                   style={styles.cameraBackButton}
@@ -346,7 +346,7 @@ const submitAttempt = async () => {
                   <Text style={styles.cameraSetupEyebrow}>OFFICIAL 568 ATTEMPT</Text>
                   <Text style={styles.cameraSetupTitle}>Set up your camera</Text>
                   <Text style={styles.cameraSetupIntro}>
-                    Position your phone so your upper body, the full glass and the surface underneath it stay visible.
+                    Keep your upper body, the full glass and the surface underneath it visible.
                   </Text>
                 </View>
               </View>
@@ -358,11 +358,18 @@ const submitAttempt = async () => {
               <View style={styles.cameraSetupBottom}>
                 <View style={styles.cameraChecklistCard}>
                   <Text style={styles.cameraChecklistTitle}>Before continuing, make sure:</Text>
-                  <Text style={styles.cameraChecklistItem}>○ You are clearly visible</Text>
-                  <Text style={styles.cameraChecklistItem}>○ The entire glass is visible</Text>
-                  <Text style={styles.cameraChecklistItem}>○ The table or surface is visible</Text>
-                  <Text style={styles.cameraChecklistItem}>○ Nothing blocks the camera</Text>
-                  <Text style={styles.cameraChecklistItem}>○ The phone is stable</Text>
+
+                  <View style={styles.cameraChecklistGrid}>
+                    <View style={styles.cameraChecklistColumn}>
+                      <Text style={styles.cameraChecklistItem}>○ You are visible</Text>
+                      <Text style={styles.cameraChecklistItem}>○ Full glass visible</Text>
+                      <Text style={styles.cameraChecklistItem}>○ Surface visible</Text>
+                    </View>
+                    <View style={styles.cameraChecklistColumn}>
+                      <Text style={styles.cameraChecklistItem}>○ Camera unobstructed</Text>
+                      <Text style={styles.cameraChecklistItem}>○ Phone stable</Text>
+                    </View>
+                  </View>
 
                   <Pressable
                     style={styles.cameraConfirmationRow}
@@ -395,13 +402,9 @@ const submitAttempt = async () => {
                       {cameraReady ? 'CONTINUE' : 'CAMERA LOADING…'}
                     </Text>
                   </Pressable>
-
-                  <Text style={styles.cameraReviewNote}>
-                    Your recording will be checked during verification.
-                  </Text>
                 </View>
               </View>
-            </>
+            </View>
           )}
 
           {phase === 'ready' && (
@@ -877,15 +880,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+  cameraSetupLayout: {
+    flex: 1,
+  },
   cameraSetupTop: {
-    paddingHorizontal: 22,
-    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   cameraBackButton: {
     alignSelf: 'flex-start',
-    paddingVertical: 9,
+    paddingVertical: 6,
     paddingLeft: 44,
-    paddingRight: 14,
+    paddingRight: 12,
   },
   cameraBackText: {
     color: '#FFF',
@@ -893,52 +899,52 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   cameraSetupHeaderCard: {
-    marginTop: 4,
+    marginTop: 2,
     paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderRadius: 17,
+    paddingTop: 9,
+    paddingBottom: 9,
+    borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.62)',
   },
   cameraSetupEyebrow: {
     color: '#D8D8D8',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '900',
-    letterSpacing: 1.4,
+    letterSpacing: 1.3,
   },
   cameraSetupTitle: {
     marginTop: 2,
     color: '#FFF',
-    fontSize: 20,
-    lineHeight: 23,
+    fontSize: 19,
+    lineHeight: 22,
     fontWeight: '900',
   },
   cameraSetupIntro: {
     marginTop: 3,
     color: '#F0F0F0',
-    fontSize: 11.5,
-    lineHeight: 15.5,
+    fontSize: 11,
+    lineHeight: 15,
   },
   cameraGuide: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    top: '25%',
-    height: '40%',
+    flex: 1,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    minHeight: 260,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.84)',
+    borderColor: 'rgba(255,255,255,0.86)',
     borderStyle: 'dashed',
     borderRadius: 20,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingBottom: 7,
   },
   cameraGuideText: {
     color: '#FFF',
     fontSize: 9.5,
     fontWeight: '900',
-    letterSpacing: 0.6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    letterSpacing: 0.55,
+    backgroundColor: 'rgba(0,0,0,0.58)',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 11,
@@ -946,45 +952,51 @@ const styles = StyleSheet.create({
   },
   cameraSetupBottom: {
     paddingHorizontal: 12,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   cameraChecklistCard: {
     paddingHorizontal: 11,
-    paddingTop: 9,
+    paddingTop: 8,
     paddingBottom: 8,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.96)',
   },
   cameraChecklistTitle: {
     color: '#111',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '900',
-    marginBottom: 3,
+    marginBottom: 4,
+  },
+  cameraChecklistGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cameraChecklistColumn: {
+    flex: 1,
   },
   cameraChecklistItem: {
     color: '#2B2B2B',
-    fontSize: 10.5,
-    lineHeight: 14,
-    marginBottom: 0,
+    fontSize: 9.5,
+    lineHeight: 13,
   },
   cameraConfirmationRow: {
     marginTop: 5,
-    paddingTop: 6,
+    paddingTop: 5,
     borderTopWidth: 1,
     borderTopColor: '#DDD',
     flexDirection: 'row',
     alignItems: 'center',
   },
   cameraCheckbox: {
-    width: 20,
-    height: 20,
+    width: 19,
+    height: 19,
     borderRadius: 6,
     borderWidth: 2,
     borderColor: '#6D6D68',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF',
-    marginRight: 8,
+    marginRight: 7,
   },
   cameraCheckboxChecked: {
     backgroundColor: '#111',
@@ -992,19 +1004,19 @@ const styles = StyleSheet.create({
   },
   cameraCheckboxTick: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '900',
   },
   cameraConfirmationText: {
     flex: 1,
     color: '#111',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10.5,
+    lineHeight: 13,
     fontWeight: '700',
   },
   cameraContinueButton: {
-    marginTop: 6,
-    paddingVertical: 9,
+    marginTop: 5,
+    paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: '#111',
     alignItems: 'center',
@@ -1014,15 +1026,9 @@ const styles = StyleSheet.create({
   },
   cameraContinueText: {
     color: '#FFF',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  cameraReviewNote: {
-    marginTop: 4,
-    color: '#666',
-    fontSize: 9,
-    textAlign: 'center',
+    letterSpacing: 0.45,
   },
   cameraCenter: {
     flex: 1,
