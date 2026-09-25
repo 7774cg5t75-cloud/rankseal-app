@@ -917,6 +917,13 @@ const submitAttempt = async () => {
           contentContainerStyle={styles.outcomeScreenContent}
           showsVerticalScrollIndicator={false}
         >
+          <Pressable
+            style={styles.outcomeBackButton}
+            onPress={() => setScreen('attempts')}
+          >
+            <Text style={styles.outcomeBackText}>‹ Back</Text>
+          </Pressable>
+
           <View style={styles.outcomeHero}>
             <View style={styles.verifiedCircle}>
               <Text style={styles.verifiedTick}>✓</Text>
@@ -986,6 +993,13 @@ const submitAttempt = async () => {
           contentContainerStyle={styles.outcomeScreenContent}
           showsVerticalScrollIndicator={false}
         >
+          <Pressable
+            style={styles.outcomeBackButton}
+            onPress={() => setScreen('attempts')}
+          >
+            <Text style={styles.outcomeBackText}>‹ Back</Text>
+          </Pressable>
+
           <View style={styles.outcomeHero}>
             <View style={styles.notVerifiedCircle}>
               <Text style={styles.notVerifiedMark}>×</Text>
@@ -2285,6 +2299,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 54,
     paddingBottom: 34,
+  },
+  outcomeBackButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 7,
+    paddingRight: 18,
+    marginBottom: 8,
+  },
+  outcomeBackText: {
+    color: '#111',
+    fontSize: 18,
+    fontWeight: '800',
   },
   outcomeHero: {
     alignItems: 'center',
