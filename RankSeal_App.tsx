@@ -40,6 +40,7 @@ export default function App() {
   const [reviewReasonInput, setReviewReasonInput] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewQueueNotice, setReviewQueueNotice] = useState('');
   // Challenge-specific cooldown.
   // PROTOTYPE TEST VALUE ONLY: 1 minute so we can test the flow.
   // Replace this one value when the production 568 cooldown is decided.
@@ -246,7 +247,10 @@ export default function App() {
   };
 
   const saveReviewDecision = async (decision) => {
-    if (!reviewAttempt) return;
+    if (!reviewAttempt) {
+      setReviewMessage('No attempt is selected.');
+      return;
+    }
 
     if (decision === 'rejected' && !reviewReasonInput.trim()) {
       setReviewMessage('Enter a reason before rejecting this attempt.');
@@ -263,25 +267,62 @@ export default function App() {
       reviewed_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase
+    const { data: updatedAttempt, error } = await supabase
       .from('attempts')
       .update(updatePayload)
-      .eq('id', reviewAttempt.id);
+      .eq('id', reviewAttempt.id)
+      .select(
+        'id, created_at, time_ms, video_path, status, review_reason, reviewed_at'
+      )
+      .maybeSingle();
 
     if (error) {
       console.log('Review update error:', error);
       setReviewMessage(
-        'Could not save this review. Check the Supabase UPDATE policy.'
+        `Could not save this review: ${error.message || 'Supabase update failed.'}`
       );
       setReviewSaving(false);
       return;
     }
 
-    await fetchAttempts();
+    if (!updatedAttempt) {
+      setReviewMessage(
+        'Supabase did not update any row. The UPDATE permission or row policy is still blocking this attempt.'
+      );
+      setReviewSaving(false);
+      return;
+    }
+
+    if (updatedAttempt.status !== decision) {
+      setReviewMessage(
+        `Supabase returned the row, but its status is still "${updatedAttempt.status}".`
+      );
+      setReviewSaving(false);
+      return;
+    }
+
+    // Update the app immediately instead of waiting for another fetch.
+    setAttempts((current) =>
+      current.map((attempt) =>
+        attempt.id === updatedAttempt.id ? updatedAttempt : attempt
+      )
+    );
+
+    const decisionLabel =
+      decision === 'verified' ? 'verified' : 'marked not verified';
+
+    setReviewQueueNotice(
+      `Attempt #${updatedAttempt.id} was ${decisionLabel} and saved to Supabase.`
+    );
+
     setReviewAttempt(null);
     setReviewReasonInput('');
+    setReviewMessage('');
     setReviewSaving(false);
     setScreen('reviewQueue');
+
+    // Refresh from the server as a second confirmation.
+    fetchAttempts();
   };
 
   const pendingReviewAttempts = attempts.filter(
@@ -1434,6 +1475,13 @@ const submitAttempt = async () => {
             </Text>
           </View>
 
+          {reviewQueueNotice ? (
+            <View style={styles.reviewSuccessCard}>
+              <Text style={styles.reviewSuccessTitle}>✓ REVIEW SAVED</Text>
+              <Text style={styles.reviewSuccessText}>{reviewQueueNotice}</Text>
+            </View>
+          ) : null}
+
           {attemptsLoading && pendingReviewAttempts.length === 0 ? (
             <View style={styles.reviewEmptyCard}>
               <Text style={styles.reviewEmptyTitle}>Loading review queue…</Text>
@@ -1577,6 +1625,10 @@ const submitAttempt = async () => {
               <Text style={styles.reviewMessageText}>{reviewMessage}</Text>
             </View>
           ) : null}
+
+          <Text style={styles.reviewSaveInstruction}>
+            When you choose a decision, RankSeal will require Supabase to return the updated row before treating it as saved.
+          </Text>
 
           <Pressable
             style={[
@@ -3818,6 +3870,31 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 12,
     lineHeight: 17,
+  },
+  reviewSuccessCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 15,
+    backgroundColor: '#111',
+  },
+  reviewSuccessTitle: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.0,
+  },
+  reviewSuccessText: {
+    marginTop: 5,
+    color: '#E5E5E5',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  reviewSaveInstruction: {
+    marginTop: 14,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
   },
   reviewEmptyCard: {
     marginTop: 18,
