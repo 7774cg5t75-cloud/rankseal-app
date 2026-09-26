@@ -39,8 +39,17 @@ export default function App() {
   // PROTOTYPE TEST VALUE ONLY: 1 minute so we can test the flow.
   // Replace this one value when the production 568 cooldown is decided.
   const COOLDOWN_MS_568 = 60 * 1000;
+  const COOLDOWN_SECONDS_568 = Math.round(COOLDOWN_MS_568 / 1000);
+  const COOLDOWN_CHALLENGE_KEY_568 = '568';
+
+  // Prototype-only client key. When RankSeal gets user accounts this becomes
+  // the authenticated user's ID, so each person's cooldown is isolated.
+  const COOLDOWN_CLIENT_KEY = 'prototype-primary-tester';
+
   const [cooldownEndsAt568, setCooldownEndsAt568] = useState(0);
   const [cooldownRemaining568, setCooldownRemaining568] = useState(0);
+  const [cooldownChecking568, setCooldownChecking568] = useState(true);
+  const [cooldownError568, setCooldownError568] = useState('');
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -60,10 +69,82 @@ export default function App() {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const begin568Cooldown = () => {
-    const endsAt = Date.now() + COOLDOWN_MS_568;
-    setCooldownEndsAt568(endsAt);
+  const restore568Cooldown = async () => {
+    setCooldownChecking568(true);
+    setCooldownError568('');
+
+    const { data, error } = await supabase
+      .from('cooldown_events')
+      .select('created_at, cooldown_seconds')
+      .eq('challenge_key', COOLDOWN_CHALLENGE_KEY_568)
+      .eq('client_key', COOLDOWN_CLIENT_KEY)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.log('Cooldown restore error:', error);
+      setCooldownError568('Could not check the 568 cooldown right now.');
+      setCooldownChecking568(false);
+      return;
+    }
+
+    if (!data) {
+      setCooldownEndsAt568(0);
+      setCooldownRemaining568(0);
+      setCooldownChecking568(false);
+      return;
+    }
+
+    const serverStart = new Date(data.created_at).getTime();
+    const serverEnd =
+      serverStart + Number(data.cooldown_seconds || 0) * 1000;
+    const remaining = Math.max(0, serverEnd - Date.now());
+
+    if (remaining > 0) {
+      setCooldownEndsAt568(serverEnd);
+      setCooldownRemaining568(remaining);
+    } else {
+      setCooldownEndsAt568(0);
+      setCooldownRemaining568(0);
+    }
+
+    setCooldownChecking568(false);
+  };
+
+  const begin568Cooldown = async () => {
+    // Lock immediately in the current session at GO.
+    const localEndsAt = Date.now() + COOLDOWN_MS_568;
+    setCooldownEndsAt568(localEndsAt);
     setCooldownRemaining568(COOLDOWN_MS_568);
+    setCooldownError568('');
+
+    const { data, error } = await supabase
+      .from('cooldown_events')
+      .insert({
+        challenge_key: COOLDOWN_CHALLENGE_KEY_568,
+        client_key: COOLDOWN_CLIENT_KEY,
+        cooldown_seconds: COOLDOWN_SECONDS_568,
+      })
+      .select('created_at, cooldown_seconds')
+      .single();
+
+    if (error) {
+      console.log('Cooldown save error:', error);
+      setCooldownError568(
+        'The cooldown is active on this device, but it could not be saved to the server.'
+      );
+      return;
+    }
+
+    // Use Supabase's timestamp as the authoritative start when available.
+    const serverStart = new Date(data.created_at).getTime();
+    const serverEnd =
+      serverStart + Number(data.cooldown_seconds || COOLDOWN_SECONDS_568) * 1000;
+    const remaining = Math.max(0, serverEnd - Date.now());
+
+    setCooldownEndsAt568(serverEnd);
+    setCooldownRemaining568(remaining);
   };
 
   const activeAttemptTime = selectedAttempt?.time_ms ?? finalTime;
@@ -156,7 +237,7 @@ export default function App() {
   };
 
   const openCamera = () => {
-    if (is568CooldownActive) {
+    if (cooldownChecking568 || cooldownError568 || is568CooldownActive) {
       setScreen('challenge568');
       return;
     }
@@ -226,6 +307,16 @@ const submitAttempt = async () => {
   }, [cooldownEndsAt568]);
 
   useEffect(() => {
+    restore568Cooldown();
+  }, []);
+
+  useEffect(() => {
+    if (screen === 'challenge568' || screen === 'rules') {
+      restore568Cooldown();
+    }
+  }, [screen]);
+
+  useEffect(() => {
     if (screen === 'attempts') {
       fetchAttempts();
     }
@@ -236,7 +327,10 @@ const submitAttempt = async () => {
 
     if (countdown <= 0) {
       startRef.current = Date.now();
+
+      // The 568 cooldown starts at GO and is persisted to Supabase.
       begin568Cooldown();
+
       setElapsed(0);
       setRunning(true);
       setPhase('drinking');
@@ -349,7 +443,27 @@ const submitAttempt = async () => {
                 Official attempts are recorded and verified before entering the leaderboard.
               </Text>
 
-              {is568CooldownActive ? (
+              {cooldownChecking568 ? (
+                <View style={styles.cooldownCheckingCard}>
+                  <Text style={styles.cooldownCheckingLabel}>CHECKING COOLDOWN…</Text>
+                  <Text style={styles.cooldownCheckingText}>
+                    RankSeal is checking the server before enabling another official 568 attempt.
+                  </Text>
+                </View>
+              ) : cooldownError568 ? (
+                <View style={styles.cooldownErrorCard}>
+                  <Text style={styles.cooldownErrorLabel}>
+                    COOLDOWN CHECK UNAVAILABLE
+                  </Text>
+                  <Text style={styles.cooldownErrorText}>{cooldownError568}</Text>
+                  <Pressable
+                    style={styles.cooldownRetryButton}
+                    onPress={restore568Cooldown}
+                  >
+                    <Text style={styles.cooldownRetryButtonText}>TRY AGAIN</Text>
+                  </Pressable>
+                </View>
+              ) : is568CooldownActive ? (
                 <View style={styles.cooldownActiveCard}>
                   <Text style={styles.cooldownActiveLabel}>COOLDOWN ACTIVE</Text>
                   <Text style={styles.cooldownActiveTime}>
@@ -357,6 +471,9 @@ const submitAttempt = async () => {
                   </Text>
                   <Text style={styles.cooldownActiveText}>
                     Your next official 568 attempt unlocks when this timer reaches zero.
+                  </Text>
+                  <Text style={styles.cooldownPersistentText}>
+                    This cooldown is saved to RankSeal and remains active if the app is closed or reloaded.
                   </Text>
                 </View>
               ) : (
@@ -404,7 +521,7 @@ const submitAttempt = async () => {
                 The 568 involves drinking a full 568 ml of water quickly. To discourage repeated rapid attempts in a short period, RankSeal requires a cooldown before another official 568 attempt can begin.
               </Text>
               <Text style={styles.cooldownInfoSmall}>
-                The cooldown starts at GO and still applies if you discard the attempt or it is not verified.
+                The cooldown starts at GO and still applies if you discard the attempt or it is not verified. It is saved to RankSeal, so closing or reloading the app does not reset it.
               </Text>
               <Text style={styles.cooldownInfoSmall}>
                 Cooldowns are challenge-specific. Other RankSeal challenges may have no cooldown at all.
@@ -481,6 +598,9 @@ const submitAttempt = async () => {
               • You cannot begin another official 568 attempt until the cooldown ends.
             </Text>
             <Text style={styles.rulesItem}>
+              • The cooldown is saved to RankSeal and does not reset if you close or reload the app.
+            </Text>
+            <Text style={styles.rulesItem}>
               • Cooldowns are challenge-specific; other RankSeal challenges may have no cooldown.
             </Text>
             <Text style={styles.cooldownRulesPrototype}>
@@ -500,7 +620,27 @@ const submitAttempt = async () => {
             </Text>
           </Pressable>
 
-          {is568CooldownActive ? (
+          {cooldownChecking568 ? (
+            <View style={styles.rulesCooldownLock}>
+              <Text style={styles.rulesCooldownLockLabel}>CHECKING COOLDOWN…</Text>
+              <Text style={styles.rulesCooldownLockText}>
+                RankSeal is checking the server before camera setup can be enabled.
+              </Text>
+            </View>
+          ) : cooldownError568 ? (
+            <View style={styles.rulesCooldownLock}>
+              <Text style={styles.rulesCooldownLockLabel}>
+                COOLDOWN CHECK UNAVAILABLE
+              </Text>
+              <Text style={styles.rulesCooldownLockText}>{cooldownError568}</Text>
+              <Pressable
+                style={styles.rulesCooldownRetryButton}
+                onPress={restore568Cooldown}
+              >
+                <Text style={styles.rulesCooldownRetryButtonText}>TRY AGAIN</Text>
+              </Pressable>
+            </View>
+          ) : is568CooldownActive ? (
             <View style={styles.rulesCooldownLock}>
               <Text style={styles.rulesCooldownLockLabel}>COOLDOWN ACTIVE</Text>
               <Text style={styles.rulesCooldownLockTime}>
@@ -508,6 +648,9 @@ const submitAttempt = async () => {
               </Text>
               <Text style={styles.rulesCooldownLockText}>
                 Camera setup will unlock when the cooldown ends.
+              </Text>
+              <Text style={styles.rulesCooldownPersistentText}>
+                Closing or reloading the app does not reset this cooldown.
               </Text>
             </View>
           ) : (
@@ -3184,6 +3327,63 @@ const styles = StyleSheet.create({
   screenScroll: {
     flex: 1,
   },
+  cooldownCheckingCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 17,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+    alignItems: 'center',
+  },
+  cooldownCheckingLabel: {
+    color: '#111',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  cooldownCheckingText: {
+    marginTop: 6,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  cooldownErrorCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 17,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#111',
+    alignItems: 'center',
+  },
+  cooldownErrorLabel: {
+    color: '#111',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  cooldownErrorText: {
+    marginTop: 6,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  cooldownRetryButton: {
+    marginTop: 11,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#111',
+  },
+  cooldownRetryButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
   cooldownActiveCard: {
     marginTop: 14,
     padding: 16,
@@ -3210,6 +3410,13 @@ const styles = StyleSheet.create({
     color: '#E2E2E2',
     fontSize: 12,
     lineHeight: 17,
+    textAlign: 'center',
+  },
+  cooldownPersistentText: {
+    marginTop: 8,
+    color: '#BFBFBF',
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: 'center',
   },
   cooldownInfoCard: {
@@ -3291,6 +3498,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     textAlign: 'center',
+  },
+  rulesCooldownPersistentText: {
+    marginTop: 8,
+    color: '#BFBFBF',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+  rulesCooldownRetryButton: {
+    marginTop: 11,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+  },
+  rulesCooldownRetryButtonText: {
+    color: '#111',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
   challengeScrollContent: {
     paddingHorizontal: 22,
