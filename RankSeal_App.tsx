@@ -221,6 +221,17 @@ export default function App() {
     return 'This attempt has been submitted and is waiting to be checked.';
   };
 
+  const verifiedAttempts = attempts
+    .filter((attempt) => attempt.status === 'verified')
+    .sort((a, b) => Number(a.time_ms) - Number(b.time_ms));
+
+  const worldLeaderAttempt = verifiedAttempts[0] || null;
+
+  const getWorldRank = (attemptId) => {
+    const index = verifiedAttempts.findIndex((attempt) => attempt.id === attemptId);
+    return index >= 0 ? index + 1 : null;
+  };
+
   const resetAttempt = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -317,7 +328,11 @@ const submitAttempt = async () => {
   }, [screen]);
 
   useEffect(() => {
-    if (screen === 'attempts') {
+    if (
+      screen === 'attempts' ||
+      screen === 'challenge568' ||
+      screen === 'leaderboard'
+    ) {
       fetchAttempts();
     }
   }, [screen]);
@@ -432,8 +447,16 @@ const submitAttempt = async () => {
 
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>WORLD LEADER</Text>
-                <Text style={styles.statValue}>—</Text>
-                <Text style={styles.statHint}>Verified results only</Text>
+                <Text style={styles.statValue}>
+                  {worldLeaderAttempt
+                    ? `${formatTime(worldLeaderAttempt.time_ms)}s`
+                    : '—'}
+                </Text>
+                <Text style={styles.statHint}>
+                  {worldLeaderAttempt
+                    ? `Attempt #${worldLeaderAttempt.id}`
+                    : 'Verified results only'}
+                </Text>
               </View>
             </View>
 
@@ -1352,8 +1375,16 @@ const submitAttempt = async () => {
           <View style={styles.verifiedStatsRow}>
             <View style={styles.verifiedStatCard}>
               <Text style={styles.verifiedStatLabel}>WORLD RANK</Text>
-              <Text style={styles.verifiedStatValue}>—</Text>
-              <Text style={styles.verifiedStatHint}>Live ranking sync next</Text>
+              <Text style={styles.verifiedStatValue}>
+                {selectedAttempt && getWorldRank(selectedAttempt.id)
+                  ? `#${getWorldRank(selectedAttempt.id)}`
+                  : '—'}
+              </Text>
+              <Text style={styles.verifiedStatHint}>
+                {selectedAttempt && getWorldRank(selectedAttempt.id)
+                  ? 'Official world ranking'
+                  : 'Ranking unavailable'}
+              </Text>
             </View>
 
             <View style={styles.verifiedStatCard}>
@@ -1483,23 +1514,106 @@ const submitAttempt = async () => {
   if (screen === 'leaderboard') {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <Pressable onPress={() => setScreen('challenge568')}>
-            <Text style={styles.back}>‹ Back</Text>
-          </Pressable>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.leaderboardScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.leaderboardTopRow}>
+            <Pressable onPress={() => setScreen('challenge568')}>
+              <Text style={styles.back}>‹ Back</Text>
+            </Pressable>
 
-          <View style={styles.content}>
-            <Text style={styles.eyebrow}>WORLD RANKINGS</Text>
-            <Text style={styles.title}>Leaderboard</Text>
+            <Pressable
+              style={styles.leaderboardRefreshButton}
+              onPress={fetchAttempts}
+              disabled={attemptsLoading}
+            >
+              <Text style={styles.leaderboardRefreshText}>
+                {attemptsLoading ? 'LOADING…' : 'REFRESH'}
+              </Text>
+            </Pressable>
+          </View>
 
+          <Text style={styles.eyebrow}>WORLD RANKINGS</Text>
+          <Text style={styles.title}>Leaderboard</Text>
+          <Text style={styles.leaderboardSubtitle}>
+            The 568 Challenge · Fastest verified time
+          </Text>
+
+          {attemptsLoading && verifiedAttempts.length === 0 ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyTitle}>Loading verified results…</Text>
+              <Text style={styles.bodyText}>
+                Checking the official RankSeal results in Supabase.
+              </Text>
+            </View>
+          ) : null}
+
+          {attemptsError ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyTitle}>Leaderboard unavailable</Text>
+              <Text style={styles.bodyText}>{attemptsError}</Text>
+              <Pressable style={styles.leaderboardRetryButton} onPress={fetchAttempts}>
+                <Text style={styles.leaderboardRetryText}>TRY AGAIN</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {!attemptsLoading &&
+          !attemptsError &&
+          verifiedAttempts.length === 0 ? (
             <View style={styles.card}>
               <Text style={styles.emptyTitle}>No verified attempts yet.</Text>
               <Text style={styles.bodyText}>
                 The first approved attempt becomes World #1.
               </Text>
             </View>
-          </View>
-        </View>
+          ) : null}
+
+          {!attemptsError &&
+            verifiedAttempts.map((attempt, index) => (
+              <Pressable
+                key={attempt.id}
+                style={[
+                  styles.leaderboardResultCard,
+                  index === 0 && styles.leaderboardFirstCard,
+                ]}
+                onPress={() => openAttempt(attempt)}
+              >
+                <View style={styles.leaderboardRankCircle}>
+                  <Text style={styles.leaderboardRankNumber}>{index + 1}</Text>
+                </View>
+
+                <View style={styles.leaderboardResultMain}>
+                  <Text style={styles.leaderboardResultLabel}>
+                    {index === 0 ? 'WORLD LEADER' : 'VERIFIED RESULT'}
+                  </Text>
+                  <Text style={styles.leaderboardResultTime}>
+                    {formatTime(attempt.time_ms)} sec
+                  </Text>
+                  <Text style={styles.leaderboardAttemptId}>
+                    ATTEMPT #{attempt.id}
+                  </Text>
+                </View>
+
+                <View style={styles.leaderboardVerifiedBadge}>
+                  <Text style={styles.leaderboardVerifiedBadgeText}>VERIFIED</Text>
+                </View>
+              </Pressable>
+            ))}
+
+          {verifiedAttempts.length > 0 ? (
+            <View style={styles.leaderboardFooterCard}>
+              <Text style={styles.leaderboardFooterTitle}>
+                ✓ Official RankSeal leaderboard
+              </Text>
+              <Text style={styles.leaderboardFooterText}>
+                Only attempts with a verified Supabase status are included here.
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1759,6 +1873,135 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     color: '#666',
+  },
+  leaderboardScreenContent: {
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 40,
+  },
+  leaderboardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 28,
+  },
+  leaderboardRefreshButton: {
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    backgroundColor: '#FFF',
+  },
+  leaderboardRefreshText: {
+    color: '#555',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  leaderboardSubtitle: {
+    marginTop: 7,
+    marginBottom: 20,
+    color: '#666',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  leaderboardResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  leaderboardFirstCard: {
+    borderWidth: 2,
+    borderColor: '#111',
+  },
+  leaderboardRankCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaderboardRankNumber: {
+    color: '#FFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  leaderboardResultMain: {
+    flex: 1,
+    marginLeft: 13,
+    minWidth: 0,
+  },
+  leaderboardResultLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  leaderboardResultTime: {
+    marginTop: 2,
+    color: '#111',
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: '900',
+  },
+  leaderboardAttemptId: {
+    marginTop: 2,
+    color: '#888',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  leaderboardVerifiedBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#ECEAE3',
+  },
+  leaderboardVerifiedBadgeText: {
+    color: '#444',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.65,
+  },
+  leaderboardFooterCard: {
+    marginTop: 8,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  leaderboardFooterTitle: {
+    color: '#111',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  leaderboardFooterText: {
+    marginTop: 5,
+    color: '#666',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  leaderboardRetryButton: {
+    marginTop: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  leaderboardRetryText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
   emptyTitle: {
     marginTop: 8,
