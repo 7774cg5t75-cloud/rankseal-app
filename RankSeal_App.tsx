@@ -10,7 +10,6 @@ import {
   TextInput,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { File as ExpoFile } from 'expo-file-system';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(
@@ -424,21 +423,31 @@ export default function App() {
 
     setUploadProgressText('Preparing video…');
 
-    const localFile = new ExpoFile(videoUri);
-    const extension =
-      (localFile.extension || '.mp4').replace('.', '').toLowerCase() || 'mp4';
-
+    const uriWithoutQuery = videoUri.split('?')[0];
+    const extensionMatch = uriWithoutQuery.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'mp4';
     const contentType =
-      localFile.type ||
-      (extension === 'mov' ? 'video/quicktime' : 'video/mp4');
+      extension === 'mov' ? 'video/quicktime' : 'video/mp4';
 
     const fileName =
       `${Date.now()}-${Math.max(0, Math.round(finalTime))}.${extension}`;
     const storagePath = `${ATTEMPT_VIDEO_FOLDER}/${fileName}`;
 
-    setUploadProgressText('Uploading video…');
+    setUploadProgressText('Reading video…');
 
-    const fileBuffer = await localFile.arrayBuffer();
+    const response = await fetch(videoUri);
+
+    if (!response.ok) {
+      throw new Error(`Could not read recorded video (${response.status}).`);
+    }
+
+    const fileBuffer = await response.arrayBuffer();
+
+    if (!fileBuffer || fileBuffer.byteLength === 0) {
+      throw new Error('The recorded video file was empty.');
+    }
+
+    setUploadProgressText('Uploading video…');
 
     const { error: uploadError } = await supabase.storage
       .from(ATTEMPT_VIDEO_BUCKET)
