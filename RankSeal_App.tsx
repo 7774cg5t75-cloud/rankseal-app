@@ -399,12 +399,15 @@ const submitAttempt = async () => {
             </View>
 
             <View style={styles.cooldownInfoCard}>
-              <Text style={styles.infoTitle}>Cooldown for the 568</Text>
+              <Text style={styles.infoTitle}>Why is there a cooldown?</Text>
               <Text style={styles.bodyText}>
-                A cooldown begins at GO and applies even if you discard the attempt or it is not verified.
+                The 568 involves drinking a full 568 ml of water quickly. To discourage repeated rapid attempts in a short period, RankSeal requires a cooldown before another official 568 attempt can begin.
               </Text>
               <Text style={styles.cooldownInfoSmall}>
-                This rule is specific to The 568 Challenge. Other RankSeal challenges can have no cooldown.
+                The cooldown starts at GO and still applies if you discard the attempt or it is not verified.
+              </Text>
+              <Text style={styles.cooldownInfoSmall}>
+                Cooldowns are challenge-specific. Other RankSeal challenges may have no cooldown at all.
               </Text>
               <Text style={styles.cooldownPrototypeNote}>
                 Prototype test: 1-minute cooldown. The launch duration is still to be decided.
@@ -460,6 +463,14 @@ const submitAttempt = async () => {
 
           <View style={[styles.rulesSection, styles.cooldownRulesSection]}>
             <Text style={styles.rulesSectionTitle}>Cooldown after an attempt</Text>
+
+            <View style={styles.cooldownWhyBox}>
+              <Text style={styles.cooldownWhyLabel}>WHY THIS COOLDOWN EXISTS</Text>
+              <Text style={styles.cooldownWhyText}>
+                The 568 involves drinking a full 568 ml of water quickly. The cooldown is a safety measure designed to discourage repeated rapid water-drinking attempts in a short period.
+              </Text>
+            </View>
+
             <Text style={styles.rulesItem}>
               • The 568 cooldown begins at GO, not when you submit your result.
             </Text>
@@ -3224,6 +3235,28 @@ const styles = StyleSheet.create({
   },
   cooldownRulesSection: {
     backgroundColor: '#ECEAE3',
+  },
+  cooldownWhyBox: {
+    marginTop: 2,
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+  },
+  cooldownWhyLabel: {
+    color: '#111',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  cooldownWhyText: {
+    marginTop: 6,
+    color: '#444',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   cooldownRulesPrototype: {
     marginTop: 6,
