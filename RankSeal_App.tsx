@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Share,
+  TextInput,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { createClient } from '@supabase/supabase-js';
@@ -35,6 +36,10 @@ export default function App() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState(null);
+  const [reviewAttempt, setReviewAttempt] = useState(null);
+  const [reviewReasonInput, setReviewReasonInput] = useState('');
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState('');
   // Challenge-specific cooldown.
   // PROTOTYPE TEST VALUE ONLY: 1 minute so we can test the flow.
   // Replace this one value when the production 568 cooldown is decided.
@@ -165,7 +170,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('attempts')
-      .select('id, created_at, time_ms, status, review_reason, reviewed_at')
+      .select('id, created_at, time_ms, video_path, status, review_reason, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(25);
 
@@ -231,6 +236,57 @@ export default function App() {
     const index = verifiedAttempts.findIndex((attempt) => attempt.id === attemptId);
     return index >= 0 ? index + 1 : null;
   };
+
+
+  const openReviewAttempt = (attempt) => {
+    setReviewAttempt(attempt);
+    setReviewReasonInput(attempt.review_reason || '');
+    setReviewMessage('');
+    setScreen('reviewDetail');
+  };
+
+  const saveReviewDecision = async (decision) => {
+    if (!reviewAttempt) return;
+
+    if (decision === 'rejected' && !reviewReasonInput.trim()) {
+      setReviewMessage('Enter a reason before rejecting this attempt.');
+      return;
+    }
+
+    setReviewSaving(true);
+    setReviewMessage('');
+
+    const updatePayload = {
+      status: decision,
+      review_reason:
+        decision === 'rejected' ? reviewReasonInput.trim() : null,
+      reviewed_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('attempts')
+      .update(updatePayload)
+      .eq('id', reviewAttempt.id);
+
+    if (error) {
+      console.log('Review update error:', error);
+      setReviewMessage(
+        'Could not save this review. Check the Supabase UPDATE policy.'
+      );
+      setReviewSaving(false);
+      return;
+    }
+
+    await fetchAttempts();
+    setReviewAttempt(null);
+    setReviewReasonInput('');
+    setReviewSaving(false);
+    setScreen('reviewQueue');
+  };
+
+  const pendingReviewAttempts = attempts.filter(
+    (attempt) => attempt.status === 'pending'
+  );
 
   const resetAttempt = () => {
     if (timerRef.current) {
@@ -331,7 +387,8 @@ const submitAttempt = async () => {
     if (
       screen === 'attempts' ||
       screen === 'challenge568' ||
-      screen === 'leaderboard'
+      screen === 'leaderboard' ||
+      screen === 'reviewQueue'
     ) {
       fetchAttempts();
     }
@@ -1320,6 +1377,19 @@ const submitAttempt = async () => {
             );
           })}
 
+          <View style={styles.reviewAccessCard}>
+            <Text style={styles.reviewAccessLabel}>PROTOTYPE ADMIN</Text>
+            <Text style={styles.reviewAccessText}>
+              Review pending attempts without editing raw Supabase cells.
+            </Text>
+            <Pressable
+              style={styles.reviewAccessButton}
+              onPress={() => setScreen('reviewQueue')}
+            >
+              <Text style={styles.reviewAccessButtonText}>OPEN REVIEW QUEUE</Text>
+            </Pressable>
+          </View>
+
           <Pressable
             style={styles.pendingSecondaryButton}
             onPress={() => {
@@ -1333,6 +1403,207 @@ const submitAttempt = async () => {
           <Text style={styles.attemptsPrototypeNote}>
             Prototype: these rows currently represent the shared Supabase attempts table.
             User accounts come later.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'reviewQueue') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.reviewScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={() => setScreen('attempts')} style={styles.backButton}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <Text style={styles.reviewEyebrow}>PROTOTYPE ADMIN</Text>
+          <Text style={styles.reviewTitle}>Review Queue</Text>
+          <Text style={styles.reviewIntro}>
+            Pending 568 attempts waiting for a manual decision.
+          </Text>
+
+          <View style={styles.reviewWarningCard}>
+            <Text style={styles.reviewWarningTitle}>Prototype reviewer</Text>
+            <Text style={styles.reviewWarningText}>
+              This admin screen is only for development testing. Real reviewer authentication and video playback will be added later.
+            </Text>
+          </View>
+
+          {attemptsLoading && pendingReviewAttempts.length === 0 ? (
+            <View style={styles.reviewEmptyCard}>
+              <Text style={styles.reviewEmptyTitle}>Loading review queue…</Text>
+            </View>
+          ) : null}
+
+          {!attemptsLoading && pendingReviewAttempts.length === 0 ? (
+            <View style={styles.reviewEmptyCard}>
+              <Text style={styles.reviewEmptyTitle}>No pending attempts</Text>
+              <Text style={styles.reviewEmptyText}>
+                New submitted attempts will appear here automatically.
+              </Text>
+            </View>
+          ) : null}
+
+          {pendingReviewAttempts.map((attempt) => (
+            <Pressable
+              key={attempt.id}
+              style={styles.reviewQueueCard}
+              onPress={() => openReviewAttempt(attempt)}
+            >
+              <View style={styles.reviewQueueTopRow}>
+                <View>
+                  <Text style={styles.reviewQueueChallenge}>THE 568 CHALLENGE</Text>
+                  <Text style={styles.reviewQueueTime}>
+                    {formatTime(attempt.time_ms)} sec
+                  </Text>
+                  <Text style={styles.reviewQueueId}>ATTEMPT #{attempt.id}</Text>
+                </View>
+
+                <View style={styles.reviewPendingBadge}>
+                  <Text style={styles.reviewPendingBadgeText}>PENDING</Text>
+                </View>
+              </View>
+
+              <Text style={styles.reviewQueueHint}>TAP TO REVIEW →</Text>
+            </Pressable>
+          ))}
+
+          <Pressable
+            style={styles.reviewRefreshButton}
+            onPress={fetchAttempts}
+            disabled={attemptsLoading}
+          >
+            <Text style={styles.reviewRefreshButtonText}>
+              {attemptsLoading ? 'REFRESHING…' : 'REFRESH QUEUE'}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'reviewDetail') {
+    if (!reviewAttempt) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.reviewScreenContent}>
+            <Text style={styles.reviewEmptyTitle}>No attempt selected.</Text>
+            <Pressable
+              style={styles.reviewRefreshButton}
+              onPress={() => setScreen('reviewQueue')}
+            >
+              <Text style={styles.reviewRefreshButtonText}>BACK TO REVIEW QUEUE</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.reviewScreenContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable
+            onPress={() => {
+              setReviewAttempt(null);
+              setReviewReasonInput('');
+              setReviewMessage('');
+              setScreen('reviewQueue');
+            }}
+            style={styles.backButton}
+          >
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <Text style={styles.reviewEyebrow}>MANUAL REVIEW</Text>
+          <Text style={styles.reviewTitle}>Attempt #{reviewAttempt.id}</Text>
+
+          <View style={styles.reviewAttemptHero}>
+            <Text style={styles.reviewAttemptLabel}>RECORDED TIME</Text>
+            <Text style={styles.reviewAttemptTime}>
+              {formatTime(reviewAttempt.time_ms)}
+            </Text>
+            <Text style={styles.reviewAttemptSeconds}>SECONDS</Text>
+          </View>
+
+          <View style={styles.reviewVideoPlaceholder}>
+            <Text style={styles.reviewVideoPlaceholderTitle}>
+              VIDEO REVIEW COMING NEXT
+            </Text>
+            <Text style={styles.reviewVideoPlaceholderText}>
+              Current prototype video path: {reviewAttempt.video_path || 'not available'}
+            </Text>
+          </View>
+
+          <View style={styles.reviewChecklistCard}>
+            <Text style={styles.reviewChecklistTitle}>Review against the 568 rules</Text>
+            <Text style={styles.reviewChecklistItem}>• Starting volume is clearly shown.</Text>
+            <Text style={styles.reviewChecklistItem}>• Glass is upright on a level surface.</Text>
+            <Text style={styles.reviewChecklistItem}>• Person and full glass remain visible.</Text>
+            <Text style={styles.reviewChecklistItem}>• Drinking begins after GO.</Text>
+            <Text style={styles.reviewChecklistItem}>• Full 568 ml is consumed.</Text>
+            <Text style={styles.reviewChecklistItem}>• Recording remains continuous.</Text>
+            <Text style={styles.reviewChecklistItem}>• Glass is inverted and shown clearly at the end.</Text>
+          </View>
+
+          <View style={styles.reviewReasonCard}>
+            <Text style={styles.reviewReasonLabel}>REJECTION REASON</Text>
+            <Text style={styles.reviewReasonHelp}>
+              Only required if you reject the attempt.
+            </Text>
+            <TextInput
+              style={styles.reviewReasonInput}
+              value={reviewReasonInput}
+              onChangeText={setReviewReasonInput}
+              placeholder="e.g. Starting volume could not be verified clearly"
+              placeholderTextColor="#999"
+              multiline
+              textAlignVertical="top"
+              editable={!reviewSaving}
+            />
+          </View>
+
+          {reviewMessage ? (
+            <View style={styles.reviewMessageCard}>
+              <Text style={styles.reviewMessageText}>{reviewMessage}</Text>
+            </View>
+          ) : null}
+
+          <Pressable
+            style={[
+              styles.reviewVerifyButton,
+              reviewSaving && styles.reviewDecisionDisabled,
+            ]}
+            disabled={reviewSaving}
+            onPress={() => saveReviewDecision('verified')}
+          >
+            <Text style={styles.reviewVerifyButtonText}>
+              {reviewSaving ? 'SAVING…' : '✓ VERIFY ATTEMPT'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.reviewRejectButton,
+              reviewSaving && styles.reviewDecisionDisabled,
+            ]}
+            disabled={reviewSaving}
+            onPress={() => saveReviewDecision('rejected')}
+          >
+            <Text style={styles.reviewRejectButtonText}>NOT VERIFIED</Text>
+          </Pressable>
+
+          <Text style={styles.reviewDecisionNote}>
+            The decision is written directly to Supabase and updates My Attempts and the leaderboard.
           </Text>
         </ScrollView>
       </SafeAreaView>
@@ -3461,6 +3732,322 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 9,
     lineHeight: 13,
+    textAlign: 'center',
+  },
+  reviewAccessCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  reviewAccessLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  reviewAccessText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  reviewAccessButton: {
+    marginTop: 11,
+    paddingVertical: 12,
+    borderRadius: 13,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  reviewAccessButtonText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  reviewScreenContent: {
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 40,
+  },
+  reviewEyebrow: {
+    marginTop: 18,
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  reviewTitle: {
+    marginTop: 4,
+    color: '#111',
+    fontSize: 42,
+    lineHeight: 47,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  reviewIntro: {
+    marginTop: 8,
+    color: '#666',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  reviewWarningCard: {
+    marginTop: 18,
+    padding: 15,
+    borderRadius: 17,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  reviewWarningTitle: {
+    color: '#111',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  reviewWarningText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  reviewEmptyCard: {
+    marginTop: 18,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  reviewEmptyTitle: {
+    color: '#111',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  reviewEmptyText: {
+    marginTop: 5,
+    color: '#666',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reviewQueueCard: {
+    marginTop: 12,
+    padding: 17,
+    borderRadius: 19,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  reviewQueueTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  reviewQueueChallenge: {
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  reviewQueueTime: {
+    marginTop: 3,
+    color: '#111',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+  },
+  reviewQueueId: {
+    marginTop: 3,
+    color: '#888',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  reviewPendingBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#ECEAE3',
+  },
+  reviewPendingBadgeText: {
+    color: '#444',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  reviewQueueHint: {
+    marginTop: 14,
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.75,
+  },
+  reviewRefreshButton: {
+    marginTop: 16,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  reviewRefreshButtonText: {
+    color: '#555',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  reviewAttemptHero: {
+    marginTop: 18,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  reviewAttemptLabel: {
+    color: '#BFBFBF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  reviewAttemptTime: {
+    marginTop: 4,
+    color: '#FFF',
+    fontSize: 56,
+    lineHeight: 62,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+  },
+  reviewAttemptSeconds: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  reviewVideoPlaceholder: {
+    marginTop: 13,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  reviewVideoPlaceholderTitle: {
+    color: '#111',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  reviewVideoPlaceholderText: {
+    marginTop: 6,
+    color: '#666',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  reviewChecklistCard: {
+    marginTop: 13,
+    padding: 17,
+    borderRadius: 19,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  reviewChecklistTitle: {
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  reviewChecklistItem: {
+    marginTop: 8,
+    color: '#444',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reviewReasonCard: {
+    marginTop: 13,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  reviewReasonLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  reviewReasonHelp: {
+    marginTop: 4,
+    color: '#666',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  reviewReasonInput: {
+    minHeight: 92,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 13,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    color: '#111',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reviewMessageCard: {
+    marginTop: 12,
+    padding: 13,
+    borderRadius: 13,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#111',
+  },
+  reviewMessageText: {
+    color: '#111',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  reviewVerifyButton: {
+    marginTop: 16,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  reviewVerifyButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  reviewRejectButton: {
+    marginTop: 9,
+    paddingVertical: 15,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#111',
+    alignItems: 'center',
+  },
+  reviewRejectButtonText: {
+    color: '#111',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  reviewDecisionDisabled: {
+    opacity: 0.5,
+  },
+  reviewDecisionNote: {
+    marginTop: 12,
+    paddingHorizontal: 8,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: 'center',
   },
   attemptsScreenContent: {
