@@ -10,11 +10,27 @@ import {
   TextInput,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { File as ExpoFile } from 'expo-file-system';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(
   'https://gilbsqbfrvldpscbfert.supabase.co',
   'sb_publishable_ROci_eJJYN6yRqjtmjj99Q_VmG95ZIW'
 );
+function ReviewVideoPlayer({ uri }) {
+  const player = useVideoPlayer(uri);
+
+  return (
+    <VideoView
+      style={styles.reviewVideo}
+      player={player}
+      nativeControls
+      contentFit="contain"
+      allowsFullscreen
+    />
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState('home');
   const [phase, setPhase] = useState('ready');
@@ -40,6 +56,11 @@ export default function App() {
   const [reviewReasonInput, setReviewReasonInput] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewQueueNotice, setReviewQueueNotice] = useState('');
+  const [reviewVideoUrl, setReviewVideoUrl] = useState('');
+  const [reviewVideoLoading, setReviewVideoLoading] = useState(false);
+  const [reviewVideoError, setReviewVideoError] = useState('');
+  const [uploadProgressText, setUploadProgressText] = useState('');
   // Challenge-specific cooldown.
   // PROTOTYPE TEST VALUE ONLY: 1 minute so we can test the flow.
   // Replace this one value when the production 568 cooldown is decided.
@@ -50,6 +71,9 @@ export default function App() {
   // Prototype-only client key. When RankSeal gets user accounts this becomes
   // the authenticated user's ID, so each person's cooldown is isolated.
   const COOLDOWN_CLIENT_KEY = 'prototype-primary-tester';
+
+  const ATTEMPT_VIDEO_BUCKET = 'attempt-videos';
+  const ATTEMPT_VIDEO_FOLDER = 'prototype-primary-tester';
 
   const [cooldownEndsAt568, setCooldownEndsAt568] = useState(0);
   const [cooldownRemaining568, setCooldownRemaining568] = useState(0);
@@ -238,15 +262,55 @@ export default function App() {
   };
 
 
+  const loadReviewVideo = async (attempt) => {
+    setReviewVideoUrl('');
+    setReviewVideoError('');
+
+    if (
+      !attempt?.video_path ||
+      attempt.video_path === 'prototype-test'
+    ) {
+      setReviewVideoLoading(false);
+      setReviewVideoError(
+        'This older prototype attempt does not have an uploaded video.'
+      );
+      return;
+    }
+
+    setReviewVideoLoading(true);
+
+    const { data, error } = await supabase.storage
+      .from(ATTEMPT_VIDEO_BUCKET)
+      .createSignedUrl(attempt.video_path, 60 * 60);
+
+    if (error || !data?.signedUrl) {
+      console.log('Signed video URL error:', error);
+      setReviewVideoError(
+        `Could not load this video: ${error?.message || 'Signed URL unavailable.'}`
+      );
+      setReviewVideoLoading(false);
+      return;
+    }
+
+    setReviewVideoUrl(data.signedUrl);
+    setReviewVideoLoading(false);
+  };
+
   const openReviewAttempt = (attempt) => {
     setReviewAttempt(attempt);
     setReviewReasonInput(attempt.review_reason || '');
     setReviewMessage('');
+    setReviewVideoUrl('');
+    setReviewVideoError('');
     setScreen('reviewDetail');
+    loadReviewVideo(attempt);
   };
 
   const saveReviewDecision = async (decision) => {
-    if (!reviewAttempt) return;
+    if (!reviewAttempt) {
+      setReviewMessage('No attempt is selected.');
+      return;
+    }
 
     if (decision === 'rejected' && !reviewReasonInput.trim()) {
       setReviewMessage('Enter a reason before rejecting this attempt.');
@@ -263,25 +327,62 @@ export default function App() {
       reviewed_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase
+    const { data: updatedAttempt, error } = await supabase
       .from('attempts')
       .update(updatePayload)
-      .eq('id', reviewAttempt.id);
+      .eq('id', reviewAttempt.id)
+      .select(
+        'id, created_at, time_ms, video_path, status, review_reason, reviewed_at'
+      )
+      .maybeSingle();
 
     if (error) {
       console.log('Review update error:', error);
       setReviewMessage(
-        'Could not save this review. Check the Supabase UPDATE policy.'
+        `Could not save this review: ${error.message || 'Supabase update failed.'}`
       );
       setReviewSaving(false);
       return;
     }
 
-    await fetchAttempts();
+    if (!updatedAttempt) {
+      setReviewMessage(
+        'Supabase did not update any row. The UPDATE permission or row policy is still blocking this attempt.'
+      );
+      setReviewSaving(false);
+      return;
+    }
+
+    if (updatedAttempt.status !== decision) {
+      setReviewMessage(
+        `Supabase returned the row, but its status is still "${updatedAttempt.status}".`
+      );
+      setReviewSaving(false);
+      return;
+    }
+
+    // Update the app immediately instead of waiting for another fetch.
+    setAttempts((current) =>
+      current.map((attempt) =>
+        attempt.id === updatedAttempt.id ? updatedAttempt : attempt
+      )
+    );
+
+    const decisionLabel =
+      decision === 'verified' ? 'verified' : 'marked not verified';
+
+    setReviewQueueNotice(
+      `Attempt #${updatedAttempt.id} was ${decisionLabel} and saved to Supabase.`
+    );
+
     setReviewAttempt(null);
     setReviewReasonInput('');
+    setReviewMessage('');
     setReviewSaving(false);
     setScreen('reviewQueue');
+
+    // Refresh from the server as a second confirmation.
+    fetchAttempts();
   };
 
   const pendingReviewAttempts = attempts.filter(
@@ -301,6 +402,7 @@ export default function App() {
     setVideoUri(null);
     setSubmittingAttempt(false);
     setSubmitError('');
+    setUploadProgressText('');
   };
 
   const openCamera = () => {
@@ -315,29 +417,79 @@ export default function App() {
     setPrecheckConfirmed(false);
     setScreen('camera');
   };
+  const uploadAttemptVideo = async () => {
+    if (!videoUri) {
+      throw new Error('No recorded video is available to upload.');
+    }
+
+    setUploadProgressText('Preparing video…');
+
+    const localFile = new ExpoFile(videoUri);
+    const extension =
+      (localFile.extension || '.mp4').replace('.', '').toLowerCase() || 'mp4';
+
+    const contentType =
+      localFile.type ||
+      (extension === 'mov' ? 'video/quicktime' : 'video/mp4');
+
+    const fileName =
+      `${Date.now()}-${Math.max(0, Math.round(finalTime))}.${extension}`;
+    const storagePath = `${ATTEMPT_VIDEO_FOLDER}/${fileName}`;
+
+    setUploadProgressText('Uploading video…');
+
+    const fileBuffer = await localFile.arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from(ATTEMPT_VIDEO_BUCKET)
+      .upload(storagePath, fileBuffer, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    return storagePath;
+  };
+
 const submitAttempt = async () => {
   if (submittingAttempt) return;
 
   setSubmittingAttempt(true);
   setSubmitError('');
+  setUploadProgressText('');
 
-  const { error } = await supabase
-    .from('attempts')
-    .insert({
-      time_ms: finalTime,
-      video_path: 'prototype-test',
-      status: 'pending',
-    });
+  try {
+    const videoPath = await uploadAttemptVideo();
 
-  if (error) {
-    console.log('Submit error:', error);
-    setSubmitError('Could not submit this attempt. Please try again.');
+    setUploadProgressText('Saving attempt…');
+
+    const { error } = await supabase
+      .from('attempts')
+      .insert({
+        time_ms: finalTime,
+        video_path: videoPath,
+        status: 'pending',
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    setUploadProgressText('');
     setSubmittingAttempt(false);
-    return;
+    setScreen('pending');
+  } catch (error) {
+    console.log('Submit/upload error:', error);
+    setSubmitError(
+      `Could not submit this attempt: ${error?.message || 'Video upload failed.'}`
+    );
+    setUploadProgressText('');
+    setSubmittingAttempt(false);
   }
-
-  setSubmittingAttempt(false);
-  setScreen('pending');
 };
   const startCountdown = () => {
     if (!cameraRef.current || !cameraReady) return;
@@ -1149,6 +1301,16 @@ const submitAttempt = async () => {
             <Text style={styles.resultSubmitError}>{submitError}</Text>
           ) : null}
 
+          {submittingAttempt && uploadProgressText ? (
+            <View style={styles.uploadProgressCard}>
+              <Text style={styles.uploadProgressLabel}>SUBMITTING ATTEMPT</Text>
+              <Text style={styles.uploadProgressText}>{uploadProgressText}</Text>
+              <Text style={styles.uploadProgressHint}>
+                Keep RankSeal open until the upload finishes.
+              </Text>
+            </View>
+          ) : null}
+
           <Pressable
             style={[
               styles.resultSubmitButton,
@@ -1158,7 +1320,9 @@ const submitAttempt = async () => {
             disabled={!videoUri || submittingAttempt}
           >
             <Text style={styles.resultSubmitButtonText}>
-              {submittingAttempt ? 'SUBMITTING…' : 'SUBMIT FOR VERIFICATION'}
+              {submittingAttempt
+                ? (uploadProgressText || 'SUBMITTING…').toUpperCase()
+                : 'SUBMIT FOR VERIFICATION'}
             </Text>
           </Pressable>
 
@@ -1434,6 +1598,13 @@ const submitAttempt = async () => {
             </Text>
           </View>
 
+          {reviewQueueNotice ? (
+            <View style={styles.reviewSuccessCard}>
+              <Text style={styles.reviewSuccessTitle}>✓ REVIEW SAVED</Text>
+              <Text style={styles.reviewSuccessText}>{reviewQueueNotice}</Text>
+            </View>
+          ) : null}
+
           {attemptsLoading && pendingReviewAttempts.length === 0 ? (
             <View style={styles.reviewEmptyCard}>
               <Text style={styles.reviewEmptyTitle}>Loading review queue…</Text>
@@ -1517,6 +1688,9 @@ const submitAttempt = async () => {
               setReviewAttempt(null);
               setReviewReasonInput('');
               setReviewMessage('');
+              setReviewVideoUrl('');
+              setReviewVideoError('');
+              setReviewVideoLoading(false);
               setScreen('reviewQueue');
             }}
             style={styles.backButton}
@@ -1535,12 +1709,50 @@ const submitAttempt = async () => {
             <Text style={styles.reviewAttemptSeconds}>SECONDS</Text>
           </View>
 
-          <View style={styles.reviewVideoPlaceholder}>
-            <Text style={styles.reviewVideoPlaceholderTitle}>
-              VIDEO REVIEW COMING NEXT
-            </Text>
-            <Text style={styles.reviewVideoPlaceholderText}>
-              Current prototype video path: {reviewAttempt.video_path || 'not available'}
+          <View style={styles.reviewVideoCard}>
+            <View style={styles.reviewVideoHeaderRow}>
+              <View>
+                <Text style={styles.reviewVideoLabel}>RECORDED ATTEMPT</Text>
+                <Text style={styles.reviewVideoPath}>
+                  {reviewAttempt.video_path || 'No video path'}
+                </Text>
+              </View>
+
+              <Pressable
+                style={styles.reviewVideoReloadButton}
+                onPress={() => loadReviewVideo(reviewAttempt)}
+                disabled={reviewVideoLoading}
+              >
+                <Text style={styles.reviewVideoReloadText}>
+                  {reviewVideoLoading ? 'LOADING…' : 'RELOAD'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {reviewVideoLoading ? (
+              <View style={styles.reviewVideoState}>
+                <Text style={styles.reviewVideoStateTitle}>Loading video…</Text>
+                <Text style={styles.reviewVideoStateText}>
+                  Creating a temporary private playback link.
+                </Text>
+              </View>
+            ) : reviewVideoError ? (
+              <View style={styles.reviewVideoState}>
+                <Text style={styles.reviewVideoStateTitle}>Video unavailable</Text>
+                <Text style={styles.reviewVideoStateText}>
+                  {reviewVideoError}
+                </Text>
+              </View>
+            ) : reviewVideoUrl ? (
+              <ReviewVideoPlayer key={reviewVideoUrl} uri={reviewVideoUrl} />
+            ) : (
+              <View style={styles.reviewVideoState}>
+                <Text style={styles.reviewVideoStateTitle}>Video not loaded</Text>
+              </View>
+            )}
+
+            <Text style={styles.reviewVideoPrivacyNote}>
+              Playback uses a temporary signed URL from the private Supabase Storage bucket.
             </Text>
           </View>
 
@@ -1577,6 +1789,10 @@ const submitAttempt = async () => {
               <Text style={styles.reviewMessageText}>{reviewMessage}</Text>
             </View>
           ) : null}
+
+          <Text style={styles.reviewSaveInstruction}>
+            When you choose a decision, RankSeal will require Supabase to return the updated row before treating it as saved.
+          </Text>
 
           <Pressable
             style={[
@@ -1931,6 +2147,13 @@ const submitAttempt = async () => {
               onPress={() => setScreen('challenge568')}
             >
               <Text style={styles.primaryText}>VIEW CHALLENGE</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.homeAttemptsButton}
+              onPress={() => setScreen('attempts')}
+            >
+              <Text style={styles.homeAttemptsButtonText}>MY ATTEMPTS</Text>
             </Pressable>
           </View>
 
@@ -3129,6 +3352,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '700',
   },
+  uploadProgressCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+    alignItems: 'center',
+  },
+  uploadProgressLabel: {
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  uploadProgressText: {
+    marginTop: 5,
+    color: '#111',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  uploadProgressHint: {
+    marginTop: 4,
+    color: '#666',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
   resultSubmitButton: {
     marginTop: 18,
     paddingVertical: 17,
@@ -3812,6 +4063,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  reviewSuccessCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 15,
+    backgroundColor: '#111',
+  },
+  reviewSuccessTitle: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.0,
+  },
+  reviewSuccessText: {
+    marginTop: 5,
+    color: '#E5E5E5',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  reviewSaveInstruction: {
+    marginTop: 14,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+  },
   reviewEmptyCard: {
     marginTop: 18,
     padding: 18,
@@ -3945,6 +4221,82 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 11,
     lineHeight: 16,
+  },
+  reviewVideoCard: {
+    marginTop: 13,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  reviewVideoHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
+  },
+  reviewVideoLabel: {
+    color: '#111',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  reviewVideoPath: {
+    marginTop: 4,
+    maxWidth: 230,
+    color: '#777',
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  reviewVideoReloadButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 11,
+    backgroundColor: '#111',
+  },
+  reviewVideoReloadText: {
+    color: '#FFF',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  reviewVideo: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    maxHeight: 520,
+    borderRadius: 14,
+    backgroundColor: '#111',
+    overflow: 'hidden',
+  },
+  reviewVideoState: {
+    minHeight: 210,
+    borderRadius: 14,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  reviewVideoStateTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  reviewVideoStateText: {
+    marginTop: 7,
+    color: '#D0D0D0',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  reviewVideoPrivacyNote: {
+    marginTop: 8,
+    color: '#777',
+    fontSize: 9,
+    lineHeight: 13,
+    textAlign: 'center',
   },
   reviewChecklistCard: {
     marginTop: 13,
@@ -4491,6 +4843,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#222',
+  },
+  homeAttemptsButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    alignItems: 'center',
+  },
+  homeAttemptsButtonText: {
+    color: '#555',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
   sectionHeading: {
     marginTop: 20,
