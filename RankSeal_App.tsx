@@ -35,6 +35,12 @@ export default function App() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState(null);
+  // Challenge-specific cooldown.
+  // PROTOTYPE TEST VALUE ONLY: 1 minute so we can test the flow.
+  // Replace this one value when the production 568 cooldown is decided.
+  const COOLDOWN_MS_568 = 60 * 1000;
+  const [cooldownEndsAt568, setCooldownEndsAt568] = useState(0);
+  const [cooldownRemaining568, setCooldownRemaining568] = useState(0);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -44,6 +50,21 @@ export default function App() {
   const recordingPromiseRef = useRef(null);
 
   const formatTime = (ms) => ((ms || 0) / 1000).toFixed(2);
+
+  const is568CooldownActive = cooldownRemaining568 > 0;
+
+  const formatCooldown = (ms) => {
+    const totalSeconds = Math.max(0, Math.ceil((ms || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const begin568Cooldown = () => {
+    const endsAt = Date.now() + COOLDOWN_MS_568;
+    setCooldownEndsAt568(endsAt);
+    setCooldownRemaining568(COOLDOWN_MS_568);
+  };
 
   const activeAttemptTime = selectedAttempt?.time_ms ?? finalTime;
 
@@ -135,6 +156,11 @@ export default function App() {
   };
 
   const openCamera = () => {
+    if (is568CooldownActive) {
+      setScreen('challenge568');
+      return;
+    }
+
     resetAttempt();
     setSelectedAttempt(null);
     setCameraSetupConfirmed(false);
@@ -179,6 +205,27 @@ const submitAttempt = async () => {
   };
 
   useEffect(() => {
+    if (!cooldownEndsAt568) {
+      setCooldownRemaining568(0);
+      return;
+    }
+
+    const updateCooldown = () => {
+      const remaining = Math.max(0, cooldownEndsAt568 - Date.now());
+      setCooldownRemaining568(remaining);
+
+      if (remaining <= 0) {
+        setCooldownEndsAt568(0);
+      }
+    };
+
+    updateCooldown();
+    const cooldownTimer = setInterval(updateCooldown, 250);
+
+    return () => clearInterval(cooldownTimer);
+  }, [cooldownEndsAt568]);
+
+  useEffect(() => {
     if (screen === 'attempts') {
       fetchAttempts();
     }
@@ -189,6 +236,7 @@ const submitAttempt = async () => {
 
     if (countdown <= 0) {
       startRef.current = Date.now();
+      begin568Cooldown();
       setElapsed(0);
       setRunning(true);
       setPhase('drinking');
@@ -301,9 +349,27 @@ const submitAttempt = async () => {
                 Official attempts are recorded and verified before entering the leaderboard.
               </Text>
 
-              <Pressable style={styles.primary} onPress={() => { setRulesAccepted(false); setScreen('rules'); }}>
-                <Text style={styles.primaryText}>START OFFICIAL ATTEMPT</Text>
-              </Pressable>
+              {is568CooldownActive ? (
+                <View style={styles.cooldownActiveCard}>
+                  <Text style={styles.cooldownActiveLabel}>COOLDOWN ACTIVE</Text>
+                  <Text style={styles.cooldownActiveTime}>
+                    {formatCooldown(cooldownRemaining568)}
+                  </Text>
+                  <Text style={styles.cooldownActiveText}>
+                    Your next official 568 attempt unlocks when this timer reaches zero.
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  style={styles.primary}
+                  onPress={() => {
+                    setRulesAccepted(false);
+                    setScreen('rules');
+                  }}
+                >
+                  <Text style={styles.primaryText}>START OFFICIAL ATTEMPT</Text>
+                </Pressable>
+              )}
 
               <Pressable style={[styles.secondary, styles.disabledButton]} disabled>
                 <Text style={styles.secondaryText}>PRACTICE — COMING SOON</Text>
@@ -329,6 +395,19 @@ const submitAttempt = async () => {
               <Text style={styles.infoTitle}>What makes it official?</Text>
               <Text style={styles.bodyText}>
                 Your attempt must follow the challenge rules and pass RankSeal verification before it receives a ranking.
+              </Text>
+            </View>
+
+            <View style={styles.cooldownInfoCard}>
+              <Text style={styles.infoTitle}>Cooldown for the 568</Text>
+              <Text style={styles.bodyText}>
+                A cooldown begins at GO and applies even if you discard the attempt or it is not verified.
+              </Text>
+              <Text style={styles.cooldownInfoSmall}>
+                This rule is specific to The 568 Challenge. Other RankSeal challenges can have no cooldown.
+              </Text>
+              <Text style={styles.cooldownPrototypeNote}>
+                Prototype test: 1-minute cooldown. The launch duration is still to be decided.
               </Text>
             </View>
           </View>
@@ -379,6 +458,25 @@ const submitAttempt = async () => {
             <Text style={styles.rulesItem}>• Your result only becomes official after verification.</Text>
           </View>
 
+          <View style={[styles.rulesSection, styles.cooldownRulesSection]}>
+            <Text style={styles.rulesSectionTitle}>Cooldown after an attempt</Text>
+            <Text style={styles.rulesItem}>
+              • The 568 cooldown begins at GO, not when you submit your result.
+            </Text>
+            <Text style={styles.rulesItem}>
+              • It still applies if you discard the attempt or the attempt is not verified.
+            </Text>
+            <Text style={styles.rulesItem}>
+              • You cannot begin another official 568 attempt until the cooldown ends.
+            </Text>
+            <Text style={styles.rulesItem}>
+              • Cooldowns are challenge-specific; other RankSeal challenges may have no cooldown.
+            </Text>
+            <Text style={styles.cooldownRulesPrototype}>
+              Prototype test duration: 1 minute. The production duration has not been set yet.
+            </Text>
+          </View>
+
           <Pressable
             style={styles.confirmationCard}
             onPress={() => setRulesAccepted(!rulesAccepted)}
@@ -391,13 +489,25 @@ const submitAttempt = async () => {
             </Text>
           </Pressable>
 
-          <Pressable
-            style={[styles.rulesPrimary, !rulesAccepted && styles.primaryDisabled]}
-            onPress={openCamera}
-            disabled={!rulesAccepted}
-          >
-            <Text style={styles.rulesPrimaryText}>CONTINUE TO CAMERA SETUP</Text>
-          </Pressable>
+          {is568CooldownActive ? (
+            <View style={styles.rulesCooldownLock}>
+              <Text style={styles.rulesCooldownLockLabel}>COOLDOWN ACTIVE</Text>
+              <Text style={styles.rulesCooldownLockTime}>
+                {formatCooldown(cooldownRemaining568)}
+              </Text>
+              <Text style={styles.rulesCooldownLockText}>
+                Camera setup will unlock when the cooldown ends.
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.rulesPrimary, !rulesAccepted && styles.primaryDisabled]}
+              onPress={openCamera}
+              disabled={!rulesAccepted}
+            >
+              <Text style={styles.rulesPrimaryText}>CONTINUE TO CAMERA SETUP</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -3062,6 +3172,92 @@ const styles = StyleSheet.create({
   },
   screenScroll: {
     flex: 1,
+  },
+  cooldownActiveCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  cooldownActiveLabel: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  cooldownActiveTime: {
+    marginTop: 4,
+    color: '#FFF',
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  cooldownActiveText: {
+    marginTop: 3,
+    color: '#E2E2E2',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  cooldownInfoCard: {
+    marginTop: 14,
+    padding: 17,
+    borderRadius: 20,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  cooldownInfoSmall: {
+    marginTop: 8,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  cooldownPrototypeNote: {
+    marginTop: 9,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  cooldownRulesSection: {
+    backgroundColor: '#ECEAE3',
+  },
+  cooldownRulesPrototype: {
+    marginTop: 6,
+    color: '#777',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  rulesCooldownLock: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  rulesCooldownLockLabel: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  rulesCooldownLockTime: {
+    marginTop: 4,
+    color: '#FFF',
+    fontSize: 34,
+    lineHeight: 39,
+    fontWeight: '900',
+  },
+  rulesCooldownLockText: {
+    marginTop: 4,
+    color: '#E2E2E2',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
   },
   challengeScrollContent: {
     paddingHorizontal: 22,
