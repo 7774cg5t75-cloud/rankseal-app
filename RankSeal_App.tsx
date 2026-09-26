@@ -31,6 +31,10 @@ export default function App() {
   const [flipHoldReady, setFlipHoldReady] = useState(false);
   const [submittingAttempt, setSubmittingAttempt] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [attempts, setAttempts] = useState([]);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [attemptsError, setAttemptsError] = useState('');
+  const [selectedAttempt, setSelectedAttempt] = useState(null);
 
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -41,14 +45,78 @@ export default function App() {
 
   const formatTime = (ms) => ((ms || 0) / 1000).toFixed(2);
 
+  const activeAttemptTime = selectedAttempt?.time_ms ?? finalTime;
+
   const shareVerifiedResult = async () => {
     try {
       await Share.share({
-        message: `I recorded a verified ${formatTime(finalTime)} second time on The 568 Challenge with RankSeal.`,
+        message: `I recorded a verified ${formatTime(activeAttemptTime)} second time on The 568 Challenge with RankSeal.`,
       });
     } catch (error) {
       console.log('Share error:', error);
     }
+  };
+
+  const fetchAttempts = async () => {
+    setAttemptsLoading(true);
+    setAttemptsError('');
+
+    const { data, error } = await supabase
+      .from('attempts')
+      .select('id, created_at, time_ms, status, review_reason, reviewed_at')
+      .order('created_at', { ascending: false })
+      .limit(25);
+
+    if (error) {
+      console.log('Load attempts error:', error);
+      setAttempts([]);
+      setAttemptsError('Could not load attempts from Supabase.');
+      setAttemptsLoading(false);
+      return;
+    }
+
+    setAttempts(data || []);
+    setAttemptsLoading(false);
+  };
+
+  const openAttempt = (attempt) => {
+    setSelectedAttempt(attempt);
+
+    if (attempt.status === 'verified') {
+      setScreen('verifiedResult');
+      return;
+    }
+
+    if (attempt.status === 'rejected') {
+      setScreen('notVerified');
+      return;
+    }
+
+    setScreen('pending');
+  };
+
+  const getAttemptStatusLabel = (status) => {
+    if (status === 'verified') return 'VERIFIED';
+    if (status === 'rejected') return 'NOT VERIFIED';
+    return 'PENDING';
+  };
+
+  const getAttemptStatusTitle = (status) => {
+    if (status === 'verified') return 'Verified result';
+    if (status === 'rejected') return 'Not verified';
+    return 'Pending verification';
+  };
+
+  const getAttemptStatusText = (attempt) => {
+    if (attempt.status === 'verified') {
+      return 'This attempt passed verification and counts as an official RankSeal result.';
+    }
+
+    if (attempt.status === 'rejected') {
+      return attempt.review_reason || 'This attempt could not be verified.';
+    }
+
+    return 'This attempt has been submitted and is waiting to be checked.';
   };
 
   const resetAttempt = () => {
@@ -68,6 +136,7 @@ export default function App() {
 
   const openCamera = () => {
     resetAttempt();
+    setSelectedAttempt(null);
     setCameraSetupConfirmed(false);
     setPrecheckConfirmed(false);
     setScreen('camera');
@@ -108,6 +177,12 @@ const submitAttempt = async () => {
       console.log('Could not start recording:', error);
     }
   };
+
+  useEffect(() => {
+    if (screen === 'attempts') {
+      fetchAttempts();
+    }
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== 'camera' || phase !== 'countdown') return;
@@ -777,7 +852,7 @@ const submitAttempt = async () => {
 
             <Text style={styles.pendingEyebrow}>THE 568 CHALLENGE</Text>
             <Text style={styles.pendingTitleLarge}>ATTEMPT SUBMITTED</Text>
-            <Text style={styles.pendingSubmittedTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.pendingSubmittedTime}>{formatTime(activeAttemptTime)}</Text>
             <Text style={styles.pendingSecondsLabel}>SECONDS</Text>
           </View>
 
@@ -844,66 +919,134 @@ const submitAttempt = async () => {
           contentContainerStyle={styles.attemptsScreenContent}
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={() => setScreen('pending')} style={styles.backButton}>
+          <Pressable
+            onPress={() => {
+              setSelectedAttempt(null);
+              setScreen('home');
+            }}
+            style={styles.backButton}
+          >
             <Text style={styles.back}>‹ Back</Text>
           </Pressable>
 
-          <Text style={styles.attemptsEyebrow}>RANKSEAL</Text>
-          <Text style={styles.attemptsTitle}>My Attempts</Text>
+          <View style={styles.attemptsHeaderRow}>
+            <View style={styles.attemptsHeaderCopy}>
+              <Text style={styles.attemptsEyebrow}>RANKSEAL</Text>
+              <Text style={styles.attemptsTitle}>My Attempts</Text>
+            </View>
+
+            <Pressable
+              style={styles.attemptsRefreshButton}
+              onPress={fetchAttempts}
+              disabled={attemptsLoading}
+            >
+              <Text style={styles.attemptsRefreshText}>
+                {attemptsLoading ? 'LOADING…' : 'REFRESH'}
+              </Text>
+            </Pressable>
+          </View>
+
           <Text style={styles.attemptsIntro}>
-            Submitted challenge attempts and their verification status.
+            Submitted challenge attempts and their real verification status.
           </Text>
 
-          <View style={styles.attemptCard}>
-            <View style={styles.attemptCardTopRow}>
-              <View>
-                <Text style={styles.attemptChallenge}>THE 568 CHALLENGE</Text>
-                <Text style={styles.attemptTime}>{formatTime(finalTime)} sec</Text>
-              </View>
-
-              <View style={styles.attemptPendingBadge}>
-                <Text style={styles.attemptPendingBadgeText}>PENDING</Text>
-              </View>
+          {attemptsLoading && attempts.length === 0 ? (
+            <View style={styles.attemptsMessageCard}>
+              <Text style={styles.attemptsMessageTitle}>Loading attempts…</Text>
+              <Text style={styles.attemptsMessageText}>
+                Checking your Supabase attempts table.
+              </Text>
             </View>
+          ) : null}
 
-            <View style={styles.attemptDivider} />
-
-            <Text style={styles.attemptStatusLabel}>VERIFICATION STATUS</Text>
-            <Text style={styles.attemptStatusValue}>Pending verification</Text>
-            <Text style={styles.attemptStatusText}>
-              This attempt has been submitted and is waiting to be checked.
-            </Text>
-          </View>
-
-          <View style={styles.outcomePreviewCard}>
-            <Text style={styles.outcomePreviewLabel}>PROTOTYPE PREVIEW</Text>
-            <Text style={styles.outcomePreviewText}>
-              Until live review decisions are connected, use these buttons to preview both possible outcomes.
-            </Text>
-
-            <View style={styles.outcomePreviewRow}>
-              <Pressable
-                style={styles.outcomePreviewButton}
-                onPress={() => setScreen('verifiedResult')}
-              >
-                <Text style={styles.outcomePreviewButtonText}>VERIFIED</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.outcomePreviewButton}
-                onPress={() => setScreen('notVerified')}
-              >
-                <Text style={styles.outcomePreviewButtonText}>NOT VERIFIED</Text>
+          {attemptsError ? (
+            <View style={styles.attemptsErrorCard}>
+              <Text style={styles.attemptsErrorTitle}>Could not load attempts</Text>
+              <Text style={styles.attemptsErrorText}>{attemptsError}</Text>
+              <Pressable style={styles.attemptsRetryButton} onPress={fetchAttempts}>
+                <Text style={styles.attemptsRetryText}>TRY AGAIN</Text>
               </Pressable>
             </View>
-          </View>
+          ) : null}
+
+          {!attemptsLoading && !attemptsError && attempts.length === 0 ? (
+            <View style={styles.attemptsMessageCard}>
+              <Text style={styles.attemptsMessageTitle}>No attempts yet</Text>
+              <Text style={styles.attemptsMessageText}>
+                Complete an official 568 attempt and submit it for verification.
+              </Text>
+            </View>
+          ) : null}
+
+          {attempts.map((attempt) => {
+            const verified = attempt.status === 'verified';
+            const rejected = attempt.status === 'rejected';
+
+            return (
+              <Pressable
+                key={attempt.id}
+                style={styles.attemptCard}
+                onPress={() => openAttempt(attempt)}
+              >
+                <View style={styles.attemptCardTopRow}>
+                  <View style={styles.attemptCardMain}>
+                    <Text style={styles.attemptChallenge}>THE 568 CHALLENGE</Text>
+                    <Text style={styles.attemptTime}>{formatTime(attempt.time_ms)} sec</Text>
+                    <Text style={styles.attemptId}>ATTEMPT #{attempt.id}</Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.attemptStatusBadge,
+                      verified && styles.attemptVerifiedBadge,
+                      rejected && styles.attemptRejectedBadge,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.attemptStatusBadgeText,
+                        verified && styles.attemptVerifiedBadgeText,
+                      ]}
+                    >
+                      {getAttemptStatusLabel(attempt.status)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.attemptDivider} />
+
+                <Text style={styles.attemptStatusLabel}>VERIFICATION STATUS</Text>
+                <Text style={styles.attemptStatusValue}>
+                  {getAttemptStatusTitle(attempt.status)}
+                </Text>
+                <Text style={styles.attemptStatusText}>
+                  {getAttemptStatusText(attempt)}
+                </Text>
+
+                <Text style={styles.attemptOpenHint}>
+                  {attempt.status === 'pending'
+                    ? 'TAP TO VIEW STATUS'
+                    : 'TAP TO VIEW RESULT'}{' '}
+                  →
+                </Text>
+              </Pressable>
+            );
+          })}
 
           <Pressable
             style={styles.pendingSecondaryButton}
-            onPress={() => setScreen('home')}
+            onPress={() => {
+              setSelectedAttempt(null);
+              setScreen('home');
+            }}
           >
             <Text style={styles.pendingSecondaryButtonText}>BACK TO HOME</Text>
           </Pressable>
+
+          <Text style={styles.attemptsPrototypeNote}>
+            Prototype: these rows currently represent the shared Supabase attempts table.
+            User accounts come later.
+          </Text>
         </ScrollView>
       </SafeAreaView>
     );
@@ -931,7 +1074,7 @@ const submitAttempt = async () => {
 
             <Text style={styles.outcomeEyebrow}>THE 568 CHALLENGE</Text>
             <Text style={styles.verifiedTitle}>VERIFIED</Text>
-            <Text style={styles.outcomeTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.outcomeTime}>{formatTime(activeAttemptTime)}</Text>
             <Text style={styles.outcomeSeconds}>SECONDS</Text>
           </View>
 
@@ -951,7 +1094,17 @@ const submitAttempt = async () => {
 
             <View style={styles.verifiedStatCard}>
               <Text style={styles.verifiedStatLabel}>PERSONAL BEST</Text>
-              <Text style={styles.verifiedStatValue}>{formatTime(finalTime)}s</Text>
+              <Text style={styles.verifiedStatValue}>
+                {formatTime(
+                  attempts
+                    .filter((attempt) => attempt.status === 'verified')
+                    .reduce(
+                      (best, attempt) =>
+                        best === null || attempt.time_ms < best ? attempt.time_ms : best,
+                      null
+                    ) ?? activeAttemptTime
+                )}s
+              </Text>
               <Text style={styles.verifiedStatHint}>Verified time</Text>
             </View>
           </View>
@@ -1007,17 +1160,17 @@ const submitAttempt = async () => {
 
             <Text style={styles.outcomeEyebrow}>THE 568 CHALLENGE</Text>
             <Text style={styles.notVerifiedTitle}>NOT VERIFIED</Text>
-            <Text style={styles.outcomeTime}>{formatTime(finalTime)}</Text>
+            <Text style={styles.outcomeTime}>{formatTime(activeAttemptTime)}</Text>
             <Text style={styles.outcomeSeconds}>SECONDS</Text>
           </View>
 
           <View style={styles.notVerifiedReasonCard}>
             <Text style={styles.notVerifiedReasonLabel}>REASON</Text>
             <Text style={styles.notVerifiedReasonTitle}>
-              Starting setup could not be verified clearly
+              {selectedAttempt?.review_reason || 'This attempt could not be verified'}
             </Text>
             <Text style={styles.notVerifiedReasonText}>
-              The glass, starting volume, or level surface was not clear enough in the recording to confirm the attempt.
+              The reviewer’s decision is stored with this attempt in Supabase.
             </Text>
           </View>
 
@@ -2675,6 +2828,132 @@ const styles = StyleSheet.create({
     color: '#777',
     fontSize: 10,
     lineHeight: 14,
+    textAlign: 'center',
+  },
+  attemptsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  attemptsHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  attemptsRefreshButton: {
+    marginTop: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    backgroundColor: '#FFF',
+  },
+  attemptsRefreshText: {
+    color: '#555',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  attemptsMessageCard: {
+    marginTop: 20,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  attemptsMessageTitle: {
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  attemptsMessageText: {
+    marginTop: 5,
+    color: '#666',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  attemptsErrorCard: {
+    marginTop: 20,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  attemptsErrorTitle: {
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  attemptsErrorText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  attemptsRetryButton: {
+    marginTop: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  attemptsRetryText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  attemptCardMain: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  attemptId: {
+    marginTop: 4,
+    color: '#888',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  attemptStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 13,
+    backgroundColor: '#ECEAE3',
+  },
+  attemptVerifiedBadge: {
+    backgroundColor: '#111',
+  },
+  attemptRejectedBadge: {
+    borderWidth: 1,
+    borderColor: '#111',
+    backgroundColor: '#FFF',
+  },
+  attemptStatusBadgeText: {
+    color: '#444',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  attemptVerifiedBadgeText: {
+    color: '#FFF',
+  },
+  attemptOpenHint: {
+    marginTop: 12,
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  attemptsPrototypeNote: {
+    marginTop: 12,
+    paddingHorizontal: 8,
+    color: '#888',
+    fontSize: 9,
+    lineHeight: 13,
     textAlign: 'center',
   },
   attemptsScreenContent: {
