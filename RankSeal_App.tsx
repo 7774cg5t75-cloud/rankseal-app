@@ -33,6 +33,13 @@ function ReviewVideoPlayer({ uri }) {
 export default function App() {
   const [screen, setScreen] = useState('home');
   const [phase, setPhase] = useState('ready');
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState('signin');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authWorking, setAuthWorking] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
 
   const [countdown, setCountdown] = useState(3);
   const [running, setRunning] = useState(false);
@@ -86,6 +93,33 @@ export default function App() {
   const startRef = useRef(0);
   const recordingPromiseRef = useRef(null);
 
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+
+      if (error) {
+        console.log('Auth session error:', error);
+      }
+
+      setSession(data?.session || null);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
   const formatTime = (ms) => ((ms || 0) / 1000).toFixed(2);
 
   const is568CooldownActive = cooldownRemaining568 > 0;
@@ -95,6 +129,80 @@ export default function App() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
+
+
+  const handleEmailAuth = async () => {
+    const email = authEmail.trim();
+
+    if (!email || !authPassword) {
+      setAuthMessage('Enter your email and password.');
+      return;
+    }
+
+    if (authPassword.length < 6) {
+      setAuthMessage('Use a password with at least 6 characters.');
+      return;
+    }
+
+    setAuthWorking(true);
+    setAuthMessage('');
+
+    if (authMode === 'signup') {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: authPassword,
+      });
+
+      if (error) {
+        setAuthMessage(error.message);
+        setAuthWorking(false);
+        return;
+      }
+
+      if (data?.session) {
+        setAuthMessage('Account created. You are signed in.');
+      } else {
+        setAuthMessage(
+          'Account created. Check your email for the confirmation link, then come back and sign in.'
+        );
+      }
+
+      setAuthWorking(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: authPassword,
+    });
+
+    if (error) {
+      setAuthMessage(error.message);
+      setAuthWorking(false);
+      return;
+    }
+
+    setAuthPassword('');
+    setAuthMessage('');
+    setAuthWorking(false);
+  };
+
+  const handleSignOut = async () => {
+    setAuthWorking(true);
+    setAuthMessage('');
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      setAuthMessage(error.message);
+      setAuthWorking(false);
+      return;
+    }
+
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthWorking(false);
   };
 
   const restore568Cooldown = async () => {
@@ -2114,6 +2222,187 @@ const submitAttempt = async () => {
     );
   }
 
+  if (screen === 'profile') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={styles.profileScreenContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={() => setScreen('home')} style={styles.backButton}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+
+          <Text style={styles.profileEyebrow}>RANKSEAL ACCOUNT</Text>
+          <Text style={styles.profileTitle}>Profile</Text>
+
+          {authLoading ? (
+            <View style={styles.profileCard}>
+              <Text style={styles.profileCardTitle}>Checking account…</Text>
+            </View>
+          ) : session?.user ? (
+            <>
+              <View style={styles.profileSignedInCard}>
+                <View style={styles.profileSignedInBadge}>
+                  <Text style={styles.profileSignedInBadgeText}>SIGNED IN</Text>
+                </View>
+
+                <Text style={styles.profileAccountLabel}>EMAIL</Text>
+                <Text style={styles.profileAccountValue}>
+                  {session.user.email || 'Signed-in user'}
+                </Text>
+
+                <Text style={styles.profileAccountLabel}>ACCOUNT ID</Text>
+                <Text style={styles.profileAccountId}>{session.user.id}</Text>
+              </View>
+
+              <View style={styles.profileInfoCard}>
+                <Text style={styles.profileInfoTitle}>Next connection</Text>
+                <Text style={styles.profileInfoText}>
+                  Once this login is confirmed working, we will connect My Attempts,
+                  cooldowns and uploaded videos to this account instead of the shared
+                  prototype identity.
+                </Text>
+              </View>
+
+              {authMessage ? (
+                <View style={styles.profileMessageCard}>
+                  <Text style={styles.profileMessageText}>{authMessage}</Text>
+                </View>
+              ) : null}
+
+              <Pressable
+                style={[
+                  styles.profileSignOutButton,
+                  authWorking && styles.profileButtonDisabled,
+                ]}
+                disabled={authWorking}
+                onPress={handleSignOut}
+              >
+                <Text style={styles.profileSignOutButtonText}>
+                  {authWorking ? 'SIGNING OUT…' : 'SIGN OUT'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <View style={styles.profileModeRow}>
+                <Pressable
+                  style={[
+                    styles.profileModeButton,
+                    authMode === 'signin' && styles.profileModeButtonActive,
+                  ]}
+                  onPress={() => {
+                    setAuthMode('signin');
+                    setAuthMessage('');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.profileModeText,
+                      authMode === 'signin' && styles.profileModeTextActive,
+                    ]}
+                  >
+                    SIGN IN
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.profileModeButton,
+                    authMode === 'signup' && styles.profileModeButtonActive,
+                  ]}
+                  onPress={() => {
+                    setAuthMode('signup');
+                    setAuthMessage('');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.profileModeText,
+                      authMode === 'signup' && styles.profileModeTextActive,
+                    ]}
+                  >
+                    CREATE ACCOUNT
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.profileCard}>
+                <Text style={styles.profileCardTitle}>
+                  {authMode === 'signup'
+                    ? 'Create your RankSeal account'
+                    : 'Sign in to RankSeal'}
+                </Text>
+                <Text style={styles.profileCardText}>
+                  {authMode === 'signup'
+                    ? 'Your account will later own your attempts, rankings and cooldown history.'
+                    : 'Use the email and password you registered with.'}
+                </Text>
+
+                <Text style={styles.profileInputLabel}>EMAIL</Text>
+                <TextInput
+                  style={styles.profileInput}
+                  value={authEmail}
+                  onChangeText={setAuthEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#999"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoCorrect={false}
+                  editable={!authWorking}
+                />
+
+                <Text style={styles.profileInputLabel}>PASSWORD</Text>
+                <TextInput
+                  style={styles.profileInput}
+                  value={authPassword}
+                  onChangeText={setAuthPassword}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor="#999"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!authWorking}
+                />
+
+                {authMessage ? (
+                  <View style={styles.profileMessageCard}>
+                    <Text style={styles.profileMessageText}>{authMessage}</Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  style={[
+                    styles.profilePrimaryButton,
+                    authWorking && styles.profileButtonDisabled,
+                  ]}
+                  disabled={authWorking}
+                  onPress={handleEmailAuth}
+                >
+                  <Text style={styles.profilePrimaryButtonText}>
+                    {authWorking
+                      ? 'PLEASE WAIT…'
+                      : authMode === 'signup'
+                        ? 'CREATE ACCOUNT'
+                        : 'SIGN IN'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.profilePrototypeNote}>
+                Prototype stage: signing in works now, but existing historical attempts are
+                still using the shared test setup until the next migration.
+              </Text>
+            </>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -2199,9 +2488,12 @@ const submitAttempt = async () => {
             <Pressable style={styles.navItem} onPress={() => setScreen('leaderboard')}>
               <Text style={styles.navText}>Rankings</Text>
             </Pressable>
-            <View style={[styles.navItem, styles.navItemDisabled]}>
+            <Pressable
+              style={styles.navItem}
+              onPress={() => setScreen('profile')}
+            >
               <Text style={styles.navText}>Profile</Text>
-            </View>
+            </Pressable>
           </View>
           <Text style={styles.footer}>Prototype • 18+ • Water only • 568 ml</Text>
         </View>
@@ -2211,6 +2503,193 @@ const submitAttempt = async () => {
 }
 
 const styles = StyleSheet.create({
+  profileScreenContent: {
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 40,
+  },
+  profileEyebrow: {
+    marginTop: 22,
+    color: '#777',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  profileTitle: {
+    marginTop: 4,
+    marginBottom: 18,
+    color: '#111',
+    fontSize: 44,
+    lineHeight: 49,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+  },
+  profileCard: {
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  profileCardTitle: {
+    color: '#111',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  profileCardText: {
+    marginTop: 6,
+    color: '#666',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  profileModeRow: {
+    flexDirection: 'row',
+    padding: 4,
+    marginBottom: 12,
+    borderRadius: 16,
+    backgroundColor: '#E9E7E0',
+  },
+  profileModeButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 13,
+    alignItems: 'center',
+  },
+  profileModeButtonActive: {
+    backgroundColor: '#111',
+  },
+  profileModeText: {
+    color: '#666',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  profileModeTextActive: {
+    color: '#FFF',
+  },
+  profileInputLabel: {
+    marginTop: 16,
+    marginBottom: 6,
+    color: '#777',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  profileInput: {
+    paddingHorizontal: 13,
+    paddingVertical: 13,
+    borderRadius: 13,
+    backgroundColor: '#F5F4EF',
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    color: '#111',
+    fontSize: 14,
+  },
+  profilePrimaryButton: {
+    marginTop: 18,
+    paddingVertical: 15,
+    borderRadius: 15,
+    backgroundColor: '#111',
+    alignItems: 'center',
+  },
+  profilePrimaryButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  profileButtonDisabled: {
+    opacity: 0.5,
+  },
+  profileMessageCard: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#ECEAE3',
+  },
+  profileMessageText: {
+    color: '#333',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  profileSignedInCard: {
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#111',
+  },
+  profileSignedInBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 11,
+    backgroundColor: '#FFF',
+  },
+  profileSignedInBadgeText: {
+    color: '#111',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  profileAccountLabel: {
+    marginTop: 18,
+    color: '#AFAFAF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  profileAccountValue: {
+    marginTop: 5,
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  profileAccountId: {
+    marginTop: 5,
+    color: '#D0D0D0',
+    fontSize: 10,
+    lineHeight: 15,
+  },
+  profileInfoCard: {
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 17,
+    backgroundColor: '#ECEAE3',
+    borderWidth: 1,
+    borderColor: '#DDDAD0',
+  },
+  profileInfoTitle: {
+    color: '#111',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  profileInfoText: {
+    marginTop: 5,
+    color: '#555',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  profileSignOutButton: {
+    marginTop: 16,
+    paddingVertical: 15,
+    borderRadius: 15,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#111',
+    alignItems: 'center',
+  },
+  profileSignOutButtonText: {
+    color: '#111',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  profilePrototypeNote: {
+    marginTop: 14,
+    color: '#777',
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+  },
   safe: {
     flex: 1,
     backgroundColor: '#F5F4EF',
