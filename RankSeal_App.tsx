@@ -1932,6 +1932,13 @@ const submitAttempt = async () => {
             >
               <Text style={styles.primaryText}>VIEW CHALLENGE</Text>
             </Pressable>
+
+            <Pressable
+              style={styles.homeAttemptsButton}
+              onPress={() => setScreen('attempts')}
+            >
+              <Text style={styles.homeAttemptsButtonText}>MY ATTEMPTS</Text>
+            </Pressable>
           </View>
 
           <Text style={styles.sectionHeading}>More challenges</Text>
@@ -4491,6 +4498,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#222',
+  },
+  homeAttemptsButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#D7D4CC',
+    alignItems: 'center',
+  },
+  homeAttemptsButtonText: {
+    color: '#555',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
   sectionHeading: {
     marginTop: 20,
